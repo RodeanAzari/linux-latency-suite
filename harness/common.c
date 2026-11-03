@@ -368,6 +368,8 @@ void lat_write_sidecar(const char *path, const char *test, const char *params_js
 	json_str(f, buf);
 	read_str("/sys/devices/system/cpu/intel_pstate/no_turbo", buf, sizeof(buf));
 	fprintf(f, ",\n  \"no_turbo\": %s,\n", buf[0] ? buf : "-1");
+	fprintf(f, "  \"cpu_dma_latency_us\": {\"before\": %ld, \"after\": %ld},\n",
+		dma_lat_before, read_dma_latency());
 
 	json_env(f, "env_before", before);
 	fprintf(f, ",\n");
