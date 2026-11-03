@@ -37,7 +37,8 @@ This firmware has **no C-state or Turbo switch**, unlike some other ThinkPads. T
 ## OS and kernel
 
 - Debian 13 (trixie), minimal install with no desktop.
-- Kernel `6.12.111+deb13-amd64`, held with `apt-mark hold linux-image-amd64 linux-headers-amd64`. Debian has since moved to 6.12.115.
+- Kernels: stock **`6.12.115+deb13.1-amd64`** and PREEMPT_RT **`6.12.115+deb13.1-rt-amd64`**, same Debian release, so the RT comparison changes only the preemption model. Both images and their header metapackages are held with `apt-mark hold`. 6.12.111 and 6.12.107 remain installed as GRUB fallbacks.
+- GRUB: `GRUB_DEFAULT=saved`, with the saved entry set to stock 6.12.115 by name. Debian's menu lists the RT kernel first, so `GRUB_DEFAULT=0` would have booted RT. RT is booted one-shot with `grub-reboot`, so a failed RT boot falls back to stock on the next power cycle.
 - Kconfig: `NO_HZ_FULL=y`, `RCU_NOCB_CPU=y`, `PREEMPT_DYNAMIC=y` (voluntary by default), `HZ=250`, **`HWLAT_TRACER` not set**.
 - Clocksource `tsc`; CPU flags `constant_tsc` and `nonstop_tsc`.
 - Default `intel_pstate` governor is `powersave` with turbo on. `intel_idle` exposes C-states down to C10.
@@ -61,18 +62,26 @@ Disabled with `systemctl disable --now` (reversible with `enable --now`):
 
 Kept running: `ssh`, `NetworkManager`, `wpa_supplicant` (the only route in), `systemd-journald`, `logind`, `udevd`, `timesyncd`, `dbus`, `polkit`, `bolt`, `getty@tty1`. Kept as timers: `systemd-tmpfiles-clean` and `logrotate`; the run script stops them during measurement.
 
-## Sharing with DMA-Engine
+## Kernel taint
 
-This T490 also hosts the DMA-Engine project, which loads an out-of-tree kernel module. The kernel's taint flag (`/proc/sys/kernel/tainted`, bit 12) stays set until reboot even after the module is unloaded. **Measurement runs must start from a fresh boot with taint bits 12 and 13 clear**, and the harness records the taint value in every sidecar.
+The machine previously hosted a project that loaded out-of-tree modules; that project is finished. The harness still records `/proc/sys/kernel/tainted` in every sidecar and **rejects a run if taint bit 12 (out-of-tree) or 13 (unsigned) is set**, since the flag stays set until reboot.
 
-## SMI and thermal: first observations (not yet measured properly)
+## Idle baseline and first SMI observation
 
-- `MSR_SMI_COUNT` (0x34) read **4,813 SMIs after 23 h 23 min of uptime**, about one every 17 s on average. The count includes SMIs during boot, so treat it as a rough rate, not a measurement. Phase D measures the rate per run and the duration.
-- Package temperature was 66–81 °C with the fan near 3,500 RPM while another project was compiling. An idle baseline still needs to be taken on a quiet machine.
-- Thermal throttle counters on CPU 2 (core and package): 0 and 0.
+Taken 2026-11-03 on a fresh boot (stock 6.12.115, taint 0, defaults: `powersave`, turbo on, all C-states), 5 minutes idle, sampled every 10 s:
+
+| Metric | Value |
+|---|---|
+| Package temperature | mean 36.2 °C, min 34, max 48 |
+| Fan | 0 RPM (off) |
+| Mean `scaling_cur_freq` across CPUs | 842 MHz |
+| Thermal throttle events (core / package) | 0 / 0 |
+| `MSR_SMI_COUNT` (0x34) at 22 s after boot | **4,710** |
+| SMIs during the 303 s idle window | **2** (about one per 150 s) |
+
+**Almost all SMIs happen during boot.** An earlier reading of 4,813 after 23 h had suggested one SMI every 17 s, but nearly all of those were from boot. The steady-state rate at idle is about two orders of magnitude lower. So the harness must take SMI deltas around each run, never a since-boot count. Phase D measures the rate under load and the duration of each SMI.
 
 ## Open items
 
-- Idle temperature and fan baseline on a quiet machine.
 - Phase D: the stock kernel lacks `HWLAT_TRACER`, so `hwlatdetect` won't work. Plan: SMI-counter deltas around every run, plus a TSC-gap spin on an isolated core.
-- Disk image (Phase A): not taken. With DMA-Engine and other projects on the same disk, this is the user's call.
+- No disk image taken. The machine is reproducible from this document plus the repo: Debian 13 minimal, the package list in `progress.md`, the services above, and the GRUB setup.

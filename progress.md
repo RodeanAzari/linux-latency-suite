@@ -12,15 +12,14 @@
 - Not installed: rt-tests, stress-ng, linux-perf, trace-cmd, linux-cpupower, msr-tools, lm-sensors, numpy/matplotlib/pandas.
 - BIOS settings readable as root from `/sys/class/firmware-attributes/thinklmi/attributes/*/current_value`.
 
-## ⚠ The T490 is shared, not dedicated
-`~/DMA-Engine` is an active project on this machine (files changed 2026-11-02 20:40). The kernel is tainted (12288 = out-of-tree + unsigned module loaded this boot). The user's tmux sessions are running. Do not wipe, reboot, or edit GRUB without the user's OK.
+## T490 is now dedicated (user, 2026-11-03)
+DMA-Engine is finished and pushed; reboots and GRUB edits are free. `~/DMA-Engine`, buildroot and QEMU are still on disk and unused. Booted stock 6.12.115 with taint 0.
 
 ## Status
-- [ ] Phase A: machine prep. Done: passwordless sudo, repo cloned to `~/linux-latency-suite` (deploy key via `github-latency` SSH alias), packages installed, kernel held, BIOS recorded, services trimmed (`docs/platform.md`), `cyclictest` runs. Left: idle thermal baseline, disk image (user's call).
+- [x] Phase A: passwordless sudo; repo at `~/linux-latency-suite` (deploy key via `github-latency` SSH alias); packages installed (`rt-tests stress-ng linux-perf trace-cmd linux-cpupower msr-tools lm-sensors python3-numpy python3-matplotlib python3-pandas`, no kernelshark); stock and RT 6.12.115 installed and held; BIOS recorded; services trimmed; idle baseline taken (`docs/platform.md`). Disk image skipped: the machine is reproducible from the docs.
 - [ ] Phase B–G: not started
 
 ## Decisions, and where they differ from CLAUDE.md
-- **Share the T490, no wipe (user).** Harness work any time; reboots and GRUB edits only when the user says the machine is free.
 - **Repo (user):** private `RodeanAzari/linux-latency-suite`; make public once results and README are ready.
 - **No Ethernet available (user).** Measurement runs turn Wi-Fi off, run, then restore it, so the T490 is unreachable during a run. Needs a watchdog/timeout that always restores Wi-Fi; a hang needs a user power-cycle.
 - **Debian 13, not 12.** It is what's installed and it's minimal; reinstalling gains nothing. `cpufrequtils` no longer exists, use `linux-cpupower`.
@@ -28,7 +27,8 @@
 - **Reject tainted runs:** a run records `/proc/sys/kernel/tainted` and fails if an out-of-tree module is loaded. Needed because the DMA driver shares this machine.
 - **Pin the kernel** (`apt-mark hold`) before the campaign; it already moved from .107 to .111.
 - **Phase D can't use stock `hwlatdetect`** (no HWLAT_TRACER). Plan: read SMI count from MSR 0x34 around every run, plus a TSC-gap spin on an isolated core. Revisit a tracer-enabled kernel in Phase D. The resume bullet naming `hwlatdetect` must follow what we actually use.
-- **Phase F:** PREEMPT_RT is mainline since 6.12, so no patch is needed. Prefer Debian's `linux-image-rt-amd64` for a clean delta. Debian now only offers 6.12.115 (rt and stock), and the 6.12.111 rt package is gone. Before the campaign, in a reboot window: upgrade stock to 6.12.115, install rt 6.12.115, then hold both. That means rebuilding DMA-Engine's module, so coordinate.
+- **Phase F:** PREEMPT_RT is mainline since 6.12, so no patch is needed. Prefer Debian's `linux-image-rt-amd64` for a clean delta. Done: stock and rt 6.12.115 are installed and held. GRUB default is saved-by-name to stock, because the RT kernel sorts first in the menu. Boot RT with `grub-reboot`, one-shot.
+- **SMI rate must be a per-run delta.** About 4,700 SMIs happen during boot; idle steady state is about one per 150 s.
 - **Non-login SSH PATH lacks `/usr/sbin`** (`rdmsr`, `turbostat`, `hwlatdetect`). Scripts set PATH explicitly.
 - **Expect a modest `mitigations=off` result.** This CPU reports Meltdown and MDS "Not affected", so no KPTI, the big syscall cost §2.2 anticipates. Report what we measure.
 
