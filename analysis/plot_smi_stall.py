@@ -54,28 +54,31 @@ def main(run_dir, out):
     a1.set_title(f"100,000 wakeups at 1 kHz, CPU 2, SCHED_FIFO 90 — median {med:.1f} µs",
                  loc="left", fontsize=11, color=INK)
     big = us.argmax()
-    a1.annotate(f"max {us[big]:,.0f} µs", (t_s[big], us[big]), xytext=(8, -2),
+    a1.set_ylim(1, 1e4)
+    a1.annotate(f"max {us[big]:,.0f} µs (shaded: MSR_SMI_COUNT +{n_smi})", (t_s[big], us[big]),
+                xytext=(8, 4),
                 textcoords="offset points", color=INK2, va="center")
 
     # Zoom on the stall
     c = t_s[big]
     m = (t_s > c - 0.012) & (t_s < c + 0.012)
     zx = (t_s[m] - c) * 1e3
-    a2.axvspan((w_lo - c) * 1e3, (w_hi - c) * 1e3, color=BAND, zorder=0)
     a2.plot(zx, us[m], color=SERIES, linewidth=1, zorder=2)
     a2.scatter(zx, us[m], s=22, color=SERIES, edgecolors=SURFACE, linewidths=1.5, zorder=3)
     a2.set_xlim(-12, 12)
+    a2.set_ylim(1, 1e4)
     a2.set_xlabel("time relative to worst sample (ms) — one sample per 1 ms deadline")
-    a2.set_title(f"Zoom: shaded = the 100 ms monitor interval in which MSR_SMI_COUNT rose by {n_smi}",
+    a2.set_title(f"Zoom: two ~2 ms stalls, inside the 100 ms interval where MSR_SMI_COUNT rose by {n_smi}",
                  loc="left", fontsize=11, color=INK)
     for x, y in zip(zx, us[m]):
         if y > 100:
             a2.annotate(f"{y:,.0f}", (x, y), xytext=(0, 7), textcoords="offset points",
                         ha="center", color=INK2, fontsize=9)
-    a2.text(0.01, 0.06, f"typical wake: {med:.1f} µs", transform=a2.transAxes, color=INK2)
-    a2.text(0.99, 0.06, "each stall is followed by catch-up samples:\n"
-            "deadlines are absolute, so a late wake counts against every deadline it missed",
-            transform=a2.transAxes, ha="right", color=MUTED, fontsize=8.5)
+    a2.axhline(med, color=MUTED, linewidth=0.8, linestyle=(0, (3, 3)), zorder=1)
+    a2.text(-11.6, med * 1.4, f"median {med:.1f} µs", color=INK2, fontsize=9)
+    fig.text(0.125, 0.0, "Samples after each stall are catch-up: deadlines are absolute, so one "
+             "late wake counts against every deadline it missed (same method as cyclictest).",
+             color=MUTED, fontsize=8.5)
 
     fig.savefig(out, dpi=150, bbox_inches="tight", facecolor=SURFACE)
     print(f"wrote {out}: SMI window {w_lo:.3f}-{w_hi:.3f} s, +{n_smi} SMIs, max {us.max():.0f} us")
