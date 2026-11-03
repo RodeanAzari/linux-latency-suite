@@ -1,0 +1,12 @@
+# Build output
+*.o
+*.d
+harness/build/
+
+# Raw samples: commit a representative subset explicitly with `git add -f`
+results/**/*.bin
+
+# Python
+__pycache__/
+*.pyc
+.venv/
