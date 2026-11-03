@@ -1,0 +1,22 @@
+{
+  "test": "sched_latency",
+  "format": {"record": "<i8 t_ns, <i8 v_ns", "clock": "CLOCK_MONOTONIC", "unit": "ns"},
+  "samples": 100000,
+  "warmup_discarded": 1000,
+  "params": {"cpu": 2, "prio": 90, "policy": "SCHED_FIFO", "interval_us": 1000, "monitor_cpu": 0, "monitor_period_ms": 100},
+  "finished_at": "2026-11-03T16:37:30-0500",
+  "hostname": "t490",
+  "kernel_release": "6.12.115+deb13.1-amd64",
+  "kernel_version": "#1 SMP PREEMPT_DYNAMIC Debian 6.12.115-2 (2026-11-01)",
+  "cmdline": "BOOT_IMAGE=/boot/vmlinuz-6.12.115+deb13.1-amd64 root=UUID=0348698d-c6f3-42f1-83b5-8839e8416f97 ro quiet",
+  "tainted": 0,
+  "clocksource": "tsc",
+  "governor_cpu0": "powersave",
+  "no_turbo": 0,
+  "cpu_dma_latency_us": {"before": 0, "after": 0},
+  "env_before": {"mono_ns": 10055323322079, "smi_count": 4749, "core_throttle": 0, "pkg_throttle": 0, "pkg_temp_mc": 53000, "cur_khz": 3293914},
+  "env_after": {"mono_ns": 10156323366112, "smi_count": 4749, "core_throttle": 0, "pkg_throttle": 0, "pkg_temp_mc": 63000, "cur_khz": 3199993},
+  "smi_delta": 0,
+  "monitor_rows": 1011,
+  "monitor_overflow": false
+}

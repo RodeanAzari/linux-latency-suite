@@ -44,10 +44,21 @@ The first comparison (val1) therefore compared two different machine states:
 
 **Matched state, held at 0 µs (val4):** the two tools agree within 1 µs from
 p50 to p99.9. `cyclictest` truncates to whole microseconds, which accounts for
-the harness reading ~0.8 µs higher at p50 (1.8 vs 1). The harness tail is a bit
-heavier (p99.99 7.7 vs 3, max 15.4 vs 4). That is a single run each, and
-§3.6 run-to-run variance has not been measured yet, so the gap is noted, not
-explained.
+the harness reading ~0.8 µs higher at p50 (1.8 vs 1). Three more held pairs
+(`rep1..3`, 20 s apart, each tool's run back to back):
+
+| run | tool | p50 | p90 | p99 | p99.9 | p99.99 | max (µs) | SMIs |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| rep1 | harness | 1.8 | 2.0 | 2.2 | 2.3 | 3.6 | 15.4 | 0 |
+| rep2 | harness | 1.8 | 2.0 | 2.2 | 2.7 | 15.0 | **2210.2** | **2** |
+| rep3 | harness | 1.9 | 2.1 | 2.2 | 2.3 | 4.0 | 13.3 | 0 |
+| rep1 | cyclictest | 1 | 2 | 2 | 3 | 3 | 15 | – |
+| rep2 | cyclictest | 1 | 2 | 2 | 3 | 3 | 15 | – |
+| rep3 | cyclictest | 1 | 2 | 2 | 3 | 3 | 16 | – |
+
+Percentiles through p99.9 hold within 0.4 µs across all four harness runs.
+`cyclictest` reaches the same 15–16 µs max in the repeat runs, so the val4 max gap (15.4 vs 4)
+was run-to-run variance, not a harness defect. The rep2 outlier is explained below.
 
 **Matched state, unconstrained:** both tools produce the same two modes, near
 ~110 µs and ~250 µs. Within a single tool, the share of samples in the upper
@@ -71,6 +82,14 @@ through p99.9** when the C-state QoS target matches. That is the resolution
   numbers describe a machine with deep C-states disabled, not a stock laptop.
 
 ## Side observations (for Phase D)
+
+- **SMIs freeze the CPU for ~2 ms.** In rep2, five samples above 20 µs
+  (1868, 873, 2210, 1215, 218 µs) all fall inside the single 100 ms
+  monitor window in which `MSR_SMI_COUNT` went from 4749 to 4751. Two stalls
+  of ~1.9 and ~2.2 ms, each followed by catch-up samples: deadlines are absolute,
+  so a wake that is already late counts against every deadline it missed (the same
+  as `cyclictest`). These samples are real latency and are kept. They show the
+  platform's floor is about 1000× the tuned wakeup latency.
 
 - Holding the target at 0 raised package temperature from 52 °C to 62 °C over
   the 100 s run (val4). Unheld runs stayed at 35–39 °C. No throttling and no
