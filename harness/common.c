@@ -294,10 +294,16 @@ const char *lat_path(const char *outdir, const char *name)
 {
 	static char slots[4][512];
 	static int next;
-	char *p = slots[next++ % 4];
+	char *p = slots[next++ % 4], *s;
 
-	if (mkdir(outdir, 0755) && errno != EEXIST)
-		lat_die("mkdir %s: %s", outdir, strerror(errno));
+	/* mkdir -p: results land in results/<config>/<run>/ */
+	snprintf(p, sizeof(slots[0]), "%s/", outdir);
+	for (s = strchr(p + 1, '/'); s; s = strchr(s + 1, '/')) {
+		*s = '\0';
+		if (mkdir(p, 0755) && errno != EEXIST)
+			lat_die("mkdir %s: %s", p, strerror(errno));
+		*s = '/';
+	}
 	snprintf(p, sizeof(slots[0]), "%s/%s", outdir, name);
 	return p;
 }
