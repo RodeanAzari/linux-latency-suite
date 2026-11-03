@@ -48,7 +48,7 @@ The output is not a number. It is a **matrix**: five latency classes × eight sy
 
 | Phase | Work | Status |
 |---|---|---|
-| A | Machine prep, baseline kernel, tooling | NOT STARTED |
+| A | Machine prep, baseline kernel, tooling | IN PROGRESS |
 | B | Measurement harness core | NOT STARTED |
 | C | Validation against reference tools | NOT STARTED |
 | D | Platform floor: SMI and thermal characterization | NOT STARTED |

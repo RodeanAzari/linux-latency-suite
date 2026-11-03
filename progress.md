@@ -16,7 +16,7 @@
 `~/DMA-Engine` is an active project on this machine (files changed 2026-11-02 20:40). The kernel is tainted (12288 = out-of-tree + unsigned module loaded this boot). The user's tmux sessions are running. Do not wipe, reboot, or edit GRUB without the user's OK.
 
 ## Status
-- [ ] Phase A: machine prep (survey done; nothing changed on the T490)
+- [ ] Phase A: machine prep. Done: passwordless sudo, repo cloned to `~/linux-latency-suite` (deploy key via `github-latency` SSH alias), packages installed, kernel held, BIOS recorded, services trimmed (`docs/platform.md`), `cyclictest` runs. Left: idle thermal baseline, disk image (user's call).
 - [ ] Phase B–G: not started
 
 ## Decisions, and where they differ from CLAUDE.md
@@ -28,10 +28,9 @@
 - **Reject tainted runs:** a run records `/proc/sys/kernel/tainted` and fails if an out-of-tree module is loaded. Needed because the DMA driver shares this machine.
 - **Pin the kernel** (`apt-mark hold`) before the campaign; it already moved from .107 to .111.
 - **Phase D can't use stock `hwlatdetect`** (no HWLAT_TRACER). Plan: read SMI count from MSR 0x34 around every run, plus a TSC-gap spin on an isolated core. Revisit a tracer-enabled kernel in Phase D. The resume bullet naming `hwlatdetect` must follow what we actually use.
-- **Phase F:** PREEMPT_RT is mainline since 6.12, so no patch is needed. Prefer Debian's `linux-image-rt-amd64` (6.12.111, same version as baseline) for a clean delta.
+- **Phase F:** PREEMPT_RT is mainline since 6.12, so no patch is needed. Prefer Debian's `linux-image-rt-amd64` for a clean delta. Debian now only offers 6.12.115 (rt and stock), and the 6.12.111 rt package is gone. Before the campaign, in a reboot window: upgrade stock to 6.12.115, install rt 6.12.115, then hold both. That means rebuilding DMA-Engine's module, so coordinate.
+- **Non-login SSH PATH lacks `/usr/sbin`** (`rdmsr`, `turbostat`, `hwlatdetect`). Scripts set PATH explicitly.
 - **Expect a modest `mitigations=off` result.** This CPU reports Meltdown and MDS "Not affected", so no KPTI, the big syscall cost §2.2 anticipates. Report what we measure.
 
 ## Next steps
-1. User adds passwordless sudo on the T490 (agreed; not yet confirmed done).
-2. Finish Phase A: install packages, pin kernel, record BIOS state, trim services.
-3. Phase B: `harness/common.c`, then `sched_latency.c`.
+1. Phase B: `harness/common.c`, then `sched_latency.c`.
