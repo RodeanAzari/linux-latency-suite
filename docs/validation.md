@@ -104,3 +104,54 @@ through p99.9** when the C-state QoS target matches. That is the resolution
 
 - [ ] Repeat the val4 pair 3× to get run-to-run spread for the held state.
 - [ ] Memory results vs `perf stat` cache/TLB counters (once `memlat` exists).
+
+---
+
+# Validation: `syscall_bench`
+
+## Each mode takes the path it claims to
+
+`perf stat -e raw_syscalls:sys_enter` across one 100k-sample run (1000 warmup iterations) per mode:
+
+| mode | kernel entries | meaning |
+|---|---:|---|
+| empty | 199 | setup only |
+| getppid | 101,199 | 199 + exactly 101,000 (warmup + measured): one entry per call |
+| mono | 199 | vDSO, no kernel entry |
+| mono_raw | 202 | vDSO, no kernel entry (clocksource is TSC) |
+
+## Frequency ramp: why warmup is time-based
+
+The first version warmed up for 1000 iterations, about 50 µs at this scale. On
+the stock `powersave` governor the clock takes tens of ms to ramp, so the results
+followed frequency rather than code. `empty` measured 53 ns at ~1.1 GHz and
+26 ns at ~2.7 GHz, `mono` measured 42 or 105 ns, and the medians inside a single
+`getppid` run fell from 274 to 178 ns as the core sped up. `mono` once read lower
+than `empty`, which is impossible if costs add.
+
+Fix: warmup now runs at least 1000 iterations **and** at least 200 ms
+(`-W`). This departs from §3.3's iteration-only warmup. It is kept short of 1 s
+so that a busy `SCHED_FIFO` loop stays well inside the 950 ms/s RT runtime
+limit. Its sidecar records the iterations actually discarded.
+
+## Result: instrumentation overhead
+
+Stock config, `powersave`, turbo on, 2026-11-03. Two interleaved passes of all modes
+(`results/validation/syscall/`), with the core at 4.1 GHz by the end of each run:
+
+| mode | p50 | p99 | p99.9 (ns) | p50 − overhead |
+|---|---:|---:|---:|---:|
+| empty | 14 | 15 | 16 | (this *is* the overhead) |
+| mono | 28 | 29 | 29–30 | ~14 |
+| mono_raw | 28 | 29 | 29 | ~14 |
+| getppid | 105–106 | 159–160 | 164–173 | ~91 |
+
+**Instrumentation overhead is 14 ns** (one timestamp pair at 4.1 GHz).
+Within each mode, p50 agreed within 1 ns across passes and run order.
+These are turbo numbers. The `governor` config (turbo off) will change all of
+them, and the overhead must be re-measured for each configuration, not carried
+over.
+
+Caveat: the sidecar's `env_before.cur_khz` is read *before* the warmup, so it
+shows the pre-ramp clock. `env_after` is the one that describes the
+measurement.

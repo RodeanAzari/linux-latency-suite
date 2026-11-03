@@ -35,10 +35,11 @@ DMA-Engine is finished and pushed; reboots and GRUB edits are free. `~/DMA-Engin
 - **Expect a modest `mitigations=off` result.** This CPU reports Meltdown and MDS "Not affected", so no KPTI, the big syscall cost §2.2 anticipates. Report what we measure.
 
 - **cyclictest holds `/dev/cpu_dma_latency=0` by default** (deep C-states off); `--laptop` doesn't. That alone is 115 us vs 2 us p50 here. The harness never sets it; sidecars record it; C-states belong to the matrix `cstates` row.
+- **Busy-loop tests warm up by time (>=200 ms), not just 1000 iterations**: the powersave ramp otherwise makes results track frequency (26 vs 53 ns, same code). Overhead must be re-measured per config.
 - Results written as root are root-owned; clean up with `sudo rm`.
 - Never `pkill -f <name>` over SSH when the SSH command line contains `<name>`: it kills the session (exit 255).
 
 ## Next steps
-1. Phase B: validate `syscall_bench.c` on the T490 (written, committed, not yet run).
+1. Phase B: `ctxswitch.c` next, then memlat, ipc. syscall_bench validated: overhead 14 ns, getppid ~91 ns net, vDSO clocks ~14 ns net (turbo, stock).
 2. Phase D lead: SMIs on this machine stall ~2 ms each (rep2 in `docs/validation.md`).
 3. Then ctxswitch, memlat, ipc.
