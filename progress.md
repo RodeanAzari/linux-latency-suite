@@ -17,7 +17,9 @@ DMA-Engine is finished and pushed; reboots and GRUB edits are free. `~/DMA-Engin
 
 ## Status
 - [x] Phase A: passwordless sudo; repo at `~/linux-latency-suite` (deploy key via `github-latency` SSH alias); packages installed (`rt-tests stress-ng linux-perf trace-cmd linux-cpupower msr-tools lm-sensors python3-numpy python3-matplotlib python3-pandas`, no kernelshark); stock and RT 6.12.115 installed and held; BIOS recorded; services trimmed; idle baseline taken (`docs/platform.md`). Disk image skipped: the machine is reproducible from the docs.
-- [ ] Phase B–G: not started
+- [~] Phase B: `common.c` (pinning, mlockall, FIFO, pre-fault, raw samples, JSON sidecar, 100 ms thermal/SMI monitor, QoS target recorded) and `sched_latency.c` done. `analysis/analyze.py` prints percentiles. Remaining: syscall, ctxswitch, memlat, ipc, instrumentation-overhead measurement.
+- [~] Phase C: sched_latency agrees with cyclictest within ±1 us to p99.9 when the C-state QoS target matches (`docs/validation.md`). Remaining: 3x repeat of the held pair, perf-stat check for memlat.
+- [ ] Phase D–G: not started
 
 ## Decisions, and where they differ from CLAUDE.md
 - **Repo (user):** private `RodeanAzari/linux-latency-suite`; make public once results and README are ready.
@@ -32,5 +34,10 @@ DMA-Engine is finished and pushed; reboots and GRUB edits are free. `~/DMA-Engin
 - **Non-login SSH PATH lacks `/usr/sbin`** (`rdmsr`, `turbostat`, `hwlatdetect`). Scripts set PATH explicitly.
 - **Expect a modest `mitigations=off` result.** This CPU reports Meltdown and MDS "Not affected", so no KPTI, the big syscall cost §2.2 anticipates. Report what we measure.
 
+- **cyclictest holds `/dev/cpu_dma_latency=0` by default** (deep C-states off); `--laptop` doesn't. That alone is 115 us vs 2 us p50 here. The harness never sets it; sidecars record it; C-states belong to the matrix `cstates` row.
+- Results written as root are root-owned; clean up with `sudo rm`.
+
 ## Next steps
-1. Phase B: `harness/common.c`, then `sched_latency.c`.
+1. Repeat the held harness/cyclictest pair 3x (Phase C spread).
+2. Phase B: `syscall_bench.c` and instrumentation-overhead measurement (empty-loop timer cost).
+3. Then ctxswitch, memlat, ipc.
