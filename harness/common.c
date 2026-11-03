@@ -125,6 +125,26 @@ void *lat_alloc(size_t bytes)
 /* ---- sensors ---- */
 
 static int msr_fd = -1, temp_fd = -1, freq_fd = -1, core_thr_fd = -1, pkg_thr_fd = -1;
+static long dma_lat_before = -1;
+
+/* Current PM QoS CPU latency target in us (2000000000 = unconstrained), or -1.
+ * cyclictest holds it at 0 by default, which keeps every core out of deep
+ * C-states and changes wakeup latency ~100x on this machine, so every run
+ * records it. Opening the device adds a no-op request, so never call this
+ * from the monitor thread. */
+static long read_dma_latency(void)
+{
+	int32_t v;
+	int fd = open("/dev/cpu_dma_latency", O_RDONLY);
+	long r = -1;
+
+	if (fd >= 0) {
+		if (read(fd, &v, sizeof(v)) == sizeof(v))
+			r = v;
+		close(fd);
+	}
+	return r;
+}
 
 static int open_ro(const char *path, int warn)
 {
@@ -140,6 +160,8 @@ void lat_sensors_open(int meas_cpu, int hk_cpu)
 	char path[256], type[64];
 	glob_t g;
 	size_t i;
+
+	dma_lat_before = read_dma_latency();
 
 	/* SMIs are broadcast to every CPU, so the housekeeping CPU's counter
 	 * sees them too, and reading it there costs the measured CPU no IPI. */
