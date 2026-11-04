@@ -17,8 +17,8 @@ DMA-Engine is finished and pushed; reboots and GRUB edits are free. `~/DMA-Engin
 
 ## Status
 - [x] Phase A: passwordless sudo; repo at `~/linux-latency-suite` (deploy key via `github-latency` SSH alias); packages installed (`rt-tests stress-ng linux-perf trace-cmd linux-cpupower msr-tools lm-sensors python3-numpy python3-matplotlib python3-pandas`, no kernelshark); stock and RT 6.12.115 installed and held; BIOS recorded; services trimmed; idle baseline taken (`docs/platform.md`). Disk image skipped: the machine is reproducible from the docs.
-- [~] Phase B: `common.c` (pinning, mlockall, FIFO, pre-fault, raw samples, JSON sidecar, 100 ms thermal/SMI monitor, QoS target recorded) and `sched_latency.c` done. `analysis/analyze.py` prints percentiles. Remaining: syscall, ctxswitch, memlat, ipc, instrumentation-overhead measurement.
-- [~] Phase C: sched_latency agrees with cyclictest within ±1 us to p99.9 when the C-state QoS target matches (`docs/validation.md`). 3 repeats agree (p50-p99.9 within 0.4 us run to run). Remaining: perf-stat check for memlat.
+- [~] Phase B: `common.c` (pinning, mlockall, FIFO, pre-fault, raw samples, JSON sidecar, 100 ms thermal/SMI monitor, QoS target recorded) `sched_latency`, `syscall_bench` (incl. 14 ns timer overhead), `ctxswitch`, `memlat` done. `analysis/analyze.py` prints percentiles (memlat as ns/load). Remaining: ipc.
+- [~] Phase C: sched_latency agrees with cyclictest within ±1 us to p99.9 when the C-state QoS target matches (`docs/validation.md`). 3 repeats agree (p50-p99.9 within 0.4 us run to run). memlat validated against `mem_load_retired.*` / `dtlb_load_misses.*` per load (`scripts/validate-memlat-perf.sh`): every level and the 4K/2M TLB split match the geometry. Phase C complete pending ipc.
 - [ ] Phase D–G: not started
 
 ## Decisions, and where they differ from CLAUDE.md
@@ -39,7 +39,11 @@ DMA-Engine is finished and pushed; reboots and GRUB edits are free. `~/DMA-Engin
 - Results written as root are root-owned; clean up with `sudo rm`.
 - Never `pkill -f <name>` over SSH when the SSH command line contains `<name>`: it kills the session (exit 255).
 
+- **cTDP-down under `balanced` (found 2026-11-04).** ThinkPad DYTC `balanced` profile sets CONFIG_TDP_CONTROL=1: guaranteed 800 MHz, so turbo-off runs at 800 MHz. `platform_profile=performance` gives nominal 1.6 GHz. Runtime setting; recorded in every sidecar. **Open decision for user:** hold `performance` profile fixed across all matrix rows (§1.2 "thermal mode: max performance") — recommended.
+- **HWP drops the clock on memory-bound code** (400 MHz–2.5 GHz during DRAM runs on stock). Memory results are only comparable at a fixed clock; `baseline` memlat must be read with logged frequency.
+- **THP is `always`** on this box. memlat forces 4K with `MADV_NOHUGEPAGE`, 2M with `MAP_HUGETLB` (`vm.nr_hugepages`).
+
 ## Next steps
-1. Phase B: `memlat.c` next, then ipc. ctxswitch done and validated (perf: exactly 2 switches/round; RT p50 2.4 us same-CPU, 4.2 us SMT, 5.0 us cross-core). syscall_bench validated: overhead 14 ns, getppid ~91 ns net, vDSO clocks ~14 ns net (turbo, stock).
-2. Phase D lead: SMIs on this machine stall ~2 ms each (rep2 in `docs/validation.md`).
-3. Then ctxswitch, memlat, ipc.
+1. User decision: platform_profile policy for the matrix (above).
+2. Phase B: `ipc_latency.c` (loopback UDP RTT, eventfd wakeup, timer jitter). Last harness test.
+3. Phase D lead: SMIs stall ~2 ms each (rep2 in `docs/validation.md`). Open: memlat DRAM p99.9 is ~2x p50, recurring ~every 30 ms; check sample timestamps.
