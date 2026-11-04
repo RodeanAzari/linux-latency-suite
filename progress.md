@@ -40,6 +40,6 @@ DMA-Engine is finished and pushed; reboots and GRUB edits are free. `~/DMA-Engin
 - Never `pkill -f <name>` over SSH when the SSH command line contains `<name>`: it kills the session (exit 255).
 
 ## Next steps
-1. Phase B: `ctxswitch.c` next, then memlat, ipc. syscall_bench validated: overhead 14 ns, getppid ~91 ns net, vDSO clocks ~14 ns net (turbo, stock).
+1. Phase B: `memlat.c` next, then ipc. ctxswitch done and validated (perf: exactly 2 switches/round; RT p50 2.4 us same-CPU, 4.2 us SMT, 5.0 us cross-core). syscall_bench validated: overhead 14 ns, getppid ~91 ns net, vDSO clocks ~14 ns net (turbo, stock).
 2. Phase D lead: SMIs on this machine stall ~2 ms each (rep2 in `docs/validation.md`).
 3. Then ctxswitch, memlat, ipc.

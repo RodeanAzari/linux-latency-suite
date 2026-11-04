@@ -158,3 +158,43 @@ over.
 Caveat: the sidecar's `env_before.cur_khz` is read *before* the warmup, so it
 shows the pre-ramp clock. `env_after` is the one that describes the
 measurement.
+
+---
+
+# Validation: `ctxswitch`
+
+Pipe ping-pong between two pinned threads, both `SCHED_FIFO` 90. Each sample is one
+round trip. Stock config, 2026-11-03, two passes of each placement in interleaved order
+(`results/validation/ctxswitch/`). The core was at 4.1 GHz by the end of every run.
+No SMIs, and `cpu_dma_latency` was unconstrained.
+
+## The mechanics are what they claim
+
+`perf stat -e context-switches,cpu-migrations` over each whole run:
+
+| placement | rounds (warmup + measured) | expected switches | counted | migrations |
+|---|---:|---:|---:|---:|
+| same CPU 2↔2 | 181,198 / 176,622 | 2 per round | 362,413 / 353,261 | 2 |
+| SMT siblings 2↔6 | 137,271 / 141,698 | 2 per round | 274,562 / 283,414 | 2–3 |
+| cross-core 2↔3 | 140,905 / 142,185 | 2 per round | 281,828 / 284,387 | 3 |
+
+That is exactly two switches per round trip in every placement. The migrations happen
+at startup (thread B moving from A's CPU to its own), not during measurement.
+
+## Result (round trip, ns; pass 1 / pass 2)
+
+| placement | p50 | p90 | p99 | p99.9 | max |
+|---|---:|---:|---:|---:|---:|
+| same CPU | 2403 / 2407 | 2501 / 2494 | 2532 / 2526 | 2564 / 2874 | 8752 / 29191 |
+| SMT siblings | 4236 / 4221 | 6761 / 6617 | 8380 / 8287 | 8673 / 8502 | 32386 / 34250 |
+| cross-core | 4936 / 5002 | 5169 / 5201 | 5551 / 9734 | 23265 / 23895 | 94213 / 70295 |
+
+p50 agrees within 1.5% between passes. One-way, that is ~1.2 µs per same-CPU
+switch (including the pipe) and ~2.1–2.5 µs per cross-CPU wakeup.
+
+Observations, not yet explained:
+- Cross-CPU round trips show no sign of the ~100 µs deep C-state exit that dominates
+  `sched_latency`. Each idle gap is only a few µs, so the idle governor likely picks
+  a shallow state. This is untested; idle-state residency (`cpuidle` usage counters) would confirm it.
+- SMT siblings have the fastest cross-CPU p50 but a much wider p90–p99 than separate cores.
+- Cross-core p99.9 (~23 µs) is 3–9× the other placements' p99.9.
