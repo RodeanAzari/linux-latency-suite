@@ -39,11 +39,10 @@ DMA-Engine is finished and pushed; reboots and GRUB edits are free. `~/DMA-Engin
 - Results written as root are root-owned; clean up with `sudo rm`.
 - Never `pkill -f <name>` over SSH when the SSH command line contains `<name>`: it kills the session (exit 255).
 
-- **cTDP-down under `balanced` (found 2026-11-04).** ThinkPad DYTC `balanced` profile sets CONFIG_TDP_CONTROL=1: guaranteed 800 MHz, so turbo-off runs at 800 MHz. `platform_profile=performance` gives nominal 1.6 GHz. Runtime setting; recorded in every sidecar. **Open decision for user:** hold `performance` profile fixed across all matrix rows (§1.2 "thermal mode: max performance") — recommended.
+- **cTDP-down under `balanced` (found 2026-11-04).** ThinkPad DYTC `balanced` profile sets CONFIG_TDP_CONTROL=1: guaranteed 800 MHz, so turbo-off runs at 800 MHz. `platform_profile=performance` gives nominal 1.6 GHz. Runtime setting; recorded in every sidecar. **Decided (user, 2026-11-04): `platform_profile=performance` is held fixed for every matrix row, including `baseline`.** It's a platform setting like BIOS, not a knob. It's runtime-only, so the campaign's boot script must set it and fail if it can't.
 - **HWP drops the clock on memory-bound code** (400 MHz–2.5 GHz during DRAM runs on stock). Memory results are only comparable at a fixed clock; `baseline` memlat must be read with logged frequency.
 - **THP is `always`** on this box. memlat forces 4K with `MADV_NOHUGEPAGE`, 2M with `MAP_HUGETLB` (`vm.nr_hugepages`).
 
 ## Next steps
-1. User decision: platform_profile policy for the matrix (above).
-2. Phase B: `ipc_latency.c` (loopback UDP RTT, eventfd wakeup, timer jitter). Last harness test.
-3. Phase D lead: SMIs stall ~2 ms each (rep2 in `docs/validation.md`). Open: memlat DRAM p99.9 is ~2x p50, recurring ~every 30 ms; check sample timestamps.
+1. Phase B: `ipc_latency.c` (loopback UDP RTT, eventfd wakeup, timer jitter). Last harness test.
+2. Phase D lead: SMIs stall ~2 ms each (rep2 in `docs/validation.md`). Open: memlat DRAM p99.9 is ~2x p50, recurring ~every 30 ms; check sample timestamps.

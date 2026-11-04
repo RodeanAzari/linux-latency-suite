@@ -258,6 +258,14 @@ dTLB, a 1536-entry STLB, and 32 dTLB entries for 2M pages. L1 at 4.1 cycles and 
 match Skylake's published 4–5 and 12. The timer pair (14 ns) is 0.05 ns per load and is
 not subtracted here.
 
+![memlat working-set sweep](imgs/memlat_working_set.png)
+
+*Full sweep at 1.6 GHz (`scripts/sweep-memlat.sh`, `analysis/plot_memlat.py`,
+`results/validation/memlat-sweep/`). Points near L2 capacity vary from run to run. Four
+repeats gave: 128K at 7.60 ns every time, 192K at 7.7–9.5 ns, 256K at 8.0–12.8 ns. L2 is
+physically indexed and 4-way, so where each run's 4K page frames land decides how many
+set conflicts occur. Read single points at the cache edges as one draw from that spread.*
+
 The 4K-vs-2M gap separates cleanly by mechanism:
 - **4M (L3-resident):** 4K pages miss the dTLB and hit the STLB on 97% of loads; 2M pages
   never miss. Cost: 32.7 − 25.3 = **7.4 ns ≈ 12 cycles per STLB hit**.

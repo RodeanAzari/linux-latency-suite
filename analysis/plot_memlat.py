@@ -80,8 +80,16 @@ def main(sweep_dir, out):
     ax.annotate("", (big, y2), xytext=(big, y4),
                 arrowprops={"arrowstyle": "<->", "color": INK2, "linewidth": 1})
     ax.annotate(f"page walks: +{y4 - y2:.0f} ns (+{100 * (y4 / y2 - 1):.0f}%)",
-                (big, np.sqrt(y4 * y2)), xytext=(-10, 0), textcoords="offset points",
+                (big, y2), xytext=(0, -22), textcoords="offset points",
                 ha="right", va="center", color=INK, fontsize=9)
+
+    # Near L2 capacity, 4K page frames land in a 4-way physically indexed L2
+    # differently each run, so conflict misses (and latency) vary run to run.
+    ax.annotate("near L2 capacity: varies run to run\n(physical page placement, 4-way L2)",
+                (192 << 10, pts[192 << 10]), xytext=(-14, 34), textcoords="offset points",
+                ha="right", va="bottom", color=INK2, fontsize=8,
+                bbox={"facecolor": SURFACE, "edgecolor": "none", "pad": 1},
+                arrowprops={"arrowstyle": "-", "color": MUTED, "linewidth": 0.8})
 
     sizes = [s for s, _ in runs["4K"] if (s & (s - 1)) == 0 and s >= 4096]
     ax.set_xticks(sizes[::2])
