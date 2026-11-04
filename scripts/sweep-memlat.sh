@@ -32,6 +32,6 @@ for s in 4K 8K 16K 24K 32K 40K 48K 64K 96K 128K 192K 256K 384K 512K 768K 1M 1536
 	 2M 3M 4M 5M 6M 8M 12M 16M 32M 64M 128M 256M; do
 	sudo harness/build/memlat -s $s -o "$O"
 	case $s in
-	2M|3M|4M|5M|6M|8M|12M|16M|32M|64M|128M|256M) sudo harness/build/memlat -H -s $s -o "$O" ;;
+	2M|4M|6M|8M|12M|16M|32M|64M|128M|256M) sudo harness/build/memlat -H -s $s -o "$O" ;;
 	esac
 done
