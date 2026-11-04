@@ -32,6 +32,7 @@ sudo cpupower -c all frequency-set -g performance >/dev/null
 echo 1 | sudo tee $CPU/intel_pstate/no_turbo >/dev/null
 sudo sysctl -q vm.nr_hugepages=160
 sudo modprobe msr
+mkdir -p "$O"
 
 GA=mem_load_retired.l1_miss:u,mem_load_retired.l2_miss:u,mem_load_retired.l3_miss:u
 GB=dtlb_load_misses.stlb_hit:u,dtlb_load_misses.miss_causes_a_walk:u
