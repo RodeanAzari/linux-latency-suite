@@ -19,7 +19,8 @@ DMA-Engine is finished and pushed; reboots and GRUB edits are free. `~/DMA-Engin
 - [x] Phase A: passwordless sudo; repo at `~/linux-latency-suite` (deploy key via `github-latency` SSH alias); packages installed (`rt-tests stress-ng linux-perf trace-cmd linux-cpupower msr-tools lm-sensors python3-numpy python3-matplotlib python3-pandas`, no kernelshark); stock and RT 6.12.115 installed and held; BIOS recorded; services trimmed; idle baseline taken (`docs/platform.md`). Disk image skipped: the machine is reproducible from the docs.
 - [~] Phase B: `common.c` (pinning, mlockall, FIFO, pre-fault, raw samples, JSON sidecar, 100 ms thermal/SMI monitor, QoS target recorded) `sched_latency`, `syscall_bench` (incl. 14 ns timer overhead), `ctxswitch`, `memlat`, `ipc_latency` (udp RTT, eventfd one-way) done. `analysis/analyze.py` prints percentiles (memlat as ns/load). **§2.5 timer jitter deliberately moved to the Phase D gap detector** (busy-spin on the measured core, record every gap: ticks, IRQs, SMIs). Phase B is complete except for that.
 - [~] Phase C: sched_latency agrees with cyclictest within ±1 us to p99.9 when the C-state QoS target matches (`docs/validation.md`). 3 repeats agree (p50-p99.9 within 0.4 us run to run). memlat validated against `mem_load_retired.*` / `dtlb_load_misses.*` per load (`scripts/validate-memlat-perf.sh`): every level and the 4K/2M TLB split match the geometry. ipc validated (perf: exactly 4 syscalls, 2 switches, 2 `lo` xmits per UDP round). Phase C complete. Lesson: tracepoint-counted runs inflate latency, so take counts and latencies from separate runs.
-- [ ] Phase D–G: not started
+- [~] Phase D: `hwgap` gap detector (per-gap SMI attribution) + `analysis/gaps.py`. 20-min idle/loaded runs done (`docs/platform.md`): SMI = 2.1 ms, 0-1/20 min idle, 6/20 min loaded; e1000e watchdog ~0.5 ms every 2 s; load triples softirq gaps on CPU 2; package 100 C under load. Remaining: hwlat cross-check on RT (`scripts/validate-hwgap-hwlat.sh`, `analysis/match_hwlat.py`), integrate thermal partitioning in analysis.
+- [ ] Phase E-G: not started
 
 ## Decisions, and where they differ from CLAUDE.md
 - **Repo (user):** private `RodeanAzari/linux-latency-suite`; make public once results and README are ready.
@@ -43,7 +44,13 @@ DMA-Engine is finished and pushed; reboots and GRUB edits are free. `~/DMA-Engin
 - **HWP drops the clock on memory-bound code** (400 MHz–2.5 GHz during DRAM runs on stock). Memory results are only comparable at a fixed clock; `baseline` memlat must be read with logged frequency.
 - **THP is `always`** on this box. memlat forces 4K with `MADV_NOHUGEPAGE`, 2M with `MAP_HUGETLB` (`vm.nr_hugepages`).
 
+- **Never measure latency under tracepoints.** `perf stat` with tracepoints inflated ipc latency up to 57%. Counts and latencies come from separate runs.
+- **hwgap threshold 300 ns** (ticks are 0.3-2 us; 1 us missed ~60%).
+- **On 6.12, SCHED_FIFO doesn't own its CPU**: the fair-server lets CFS kworkers preempt it.
+- **Unplugged e1000e is admin-up** (`allow-hotplug enp0s31f6`, DHCP), so the PHY watchdog runs ~0.5 ms every 2 s. **Open decision for the user:** leave it as a baseline interference source for isolation to remove, or take it down platform-wide like the trimmed services.
+
 ## Next steps
-1. Phase D: gap detector (`hwgap.c`?): spin on an isolated core reading TSC/CLOCK_MONOTONIC and record every gap above a threshold with its timestamp, lined up against MSR_SMI_COUNT. Gives both SMI duration/frequency and §2.5 timer-interrupt jitter (250 Hz tick on stock vs ~none under nohz_full). SMIs already seen stalling ~2 ms (`docs/validation.md`).
-2. Open threads to test in the matrix: the cross-core ~20 us tail (C-state exit? `cstates` row); UDP slower on SMT siblings; memlat DRAM p99.9 ~2x p50.
-3. Figures done: `docs/imgs/smi_stall_2ms.png`, `docs/imgs/memlat_working_set.png`.
+1. Finish the hwlat cross-check (RT kernel, CPUs 2/3, loaded): every SMI should appear in both tools.
+2. Phase E: `configs/matrix.json`, `set-config.sh`, `run-suite.sh`, `collect.sh` + systemd unit. Must set `platform_profile=performance` at boot and turn Wi-Fi off and back on with a watchdog.
+3. Open threads for the matrix: cross-core ~20 us tail (C-states?); UDP slower on SMT; memlat DRAM p99.9.
+4. Figures: `smi_stall_2ms.png`, `memlat_working_set.png`, `cpu2_gaps_idle_loaded.png`.
