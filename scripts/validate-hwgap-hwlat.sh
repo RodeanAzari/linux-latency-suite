@@ -38,7 +38,7 @@ sudo sh -c "echo mono > $T/trace_clock"
 echo hwlat | sudo tee $T/current_tracer >/dev/null
 echo 1 | sudo tee $T/tracing_on >/dev/null
 
-stress-ng --taskset 0,1,4,5 --cpu 4 --io 2 --vm 2 --vm-bytes 1G --timeout $((MIN * 60 + 30))s \n	--quiet &
+stress-ng --taskset 0,1,4,5 --cpu 4 --io 2 --vm 2 --vm-bytes 1G --timeout $((MIN * 60 + 30))s --quiet &
 sleep 10
 sudo harness/build/hwgap -c 2 -m 0 -d $((MIN * 60)) -o "$O"
 wait
