@@ -82,14 +82,27 @@ def plot(run_dirs, out):
         ax.scatter(t[is_smi], us[is_smi], s=36, color=smi_c, edgecolors=SURFACE, linewidths=1.5,
                    label=f"SMI ({is_smi.sum()})", zorder=3)
         ax.set_ylabel("gap (µs)")
+        ax.set_ylim(0.2, 8000)
+        ax.set_yticks([1, 10, 100, 1000])
+        ax.set_yticklabels(["1", "10", "100", "1000"])
+        long = us[~is_smi & (us >= 100)]
+        if len(long):  # source identified by tracing, see docs/platform.md
+            ax.annotate(f"e1000e link watchdog, ~{np.median(long):.0f} µs every 2 s",
+                        (0, np.median(long)), xytext=(4, 6), textcoords="offset points",
+                        color=INK2, fontsize=8)
+        if is_smi.any():
+            ax.annotate(f"SMI, {np.median(us[is_smi]) / 1e3:.1f} ms each", (0, np.median(us[is_smi])),
+                        xytext=(4, 6), textcoords="offset points", color=INK2, fontsize=8)
         ax.set_xlim(0, t[-1])
         ax.set_title(f"{d.rstrip('/').split('/')[-1]}: {len(g):,} gaps in "
                      f"{j['params']['spin_ns'] / 60e9:.0f} min on CPU {j['params']['cpu']}",
                      loc="left", fontsize=11, color=INK)
-        ax.legend(loc="upper right", frameon=False, markerscale=1.5)
+        ax.legend(loc="lower right", bbox_to_anchor=(1, 0.98), ncol=2, frameon=False,
+                  markerscale=1.5, fontsize=9)
     axes[-1, 0].set_xlabel("time into run (min)")
     fig.text(0.01, 0.01, "Every interval > 300 ns in which a pinned SCHED_FIFO spin loop did not run. "
-             "SMI = MSR_SMI_COUNT advanced during the gap.", color=MUTED, fontsize=8)
+             "SMI = MSR_SMI_COUNT advanced during the gap; SMIs < 1 s apart overlap.",
+             color=MUTED, fontsize=8)
     fig.tight_layout(rect=(0, 0.03, 1, 1))
     fig.savefig(out, dpi=160, facecolor=SURFACE)
 
