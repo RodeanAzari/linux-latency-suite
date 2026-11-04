@@ -367,7 +367,13 @@ void lat_write_sidecar(const char *path, const char *test, const char *params_js
 	fprintf(f, ",\n  \"governor_cpu0\": ");
 	json_str(f, buf);
 	read_str("/sys/devices/system/cpu/intel_pstate/no_turbo", buf, sizeof(buf));
-	fprintf(f, ",\n  \"no_turbo\": %s,\n", buf[0] ? buf : "-1");
+	fprintf(f, ",\n  \"no_turbo\": %s", buf[0] ? buf : "-1");
+	/* ThinkPad DYTC: "balanced" selects cTDP-down (800 MHz guaranteed),
+	 * "performance" nominal (1.6 GHz). Decides the clock when turbo is off. */
+	read_str("/sys/firmware/acpi/platform_profile", buf, sizeof(buf));
+	fprintf(f, ",\n  \"platform_profile\": ");
+	json_str(f, buf);
+	fprintf(f, ",\n");
 	fprintf(f, "  \"cpu_dma_latency_us\": {\"before\": %ld, \"after\": %ld},\n",
 		dma_lat_before, read_dma_latency());
 
