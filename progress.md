@@ -17,8 +17,8 @@ DMA-Engine is finished and pushed; reboots and GRUB edits are free. `~/DMA-Engin
 
 ## Status
 - [x] Phase A: passwordless sudo; repo at `~/linux-latency-suite` (deploy key via `github-latency` SSH alias); packages installed (`rt-tests stress-ng linux-perf trace-cmd linux-cpupower msr-tools lm-sensors python3-numpy python3-matplotlib python3-pandas`, no kernelshark); stock and RT 6.12.115 installed and held; BIOS recorded; services trimmed; idle baseline taken (`docs/platform.md`). Disk image skipped: the machine is reproducible from the docs.
-- [~] Phase B: `common.c` (pinning, mlockall, FIFO, pre-fault, raw samples, JSON sidecar, 100 ms thermal/SMI monitor, QoS target recorded) `sched_latency`, `syscall_bench` (incl. 14 ns timer overhead), `ctxswitch`, `memlat` done. `analysis/analyze.py` prints percentiles (memlat as ns/load). Remaining: ipc.
-- [~] Phase C: sched_latency agrees with cyclictest within ±1 us to p99.9 when the C-state QoS target matches (`docs/validation.md`). 3 repeats agree (p50-p99.9 within 0.4 us run to run). memlat validated against `mem_load_retired.*` / `dtlb_load_misses.*` per load (`scripts/validate-memlat-perf.sh`): every level and the 4K/2M TLB split match the geometry. Phase C complete pending ipc.
+- [~] Phase B: `common.c` (pinning, mlockall, FIFO, pre-fault, raw samples, JSON sidecar, 100 ms thermal/SMI monitor, QoS target recorded) `sched_latency`, `syscall_bench` (incl. 14 ns timer overhead), `ctxswitch`, `memlat`, `ipc_latency` (udp RTT, eventfd one-way) done. `analysis/analyze.py` prints percentiles (memlat as ns/load). **§2.5 timer jitter deliberately moved to the Phase D gap detector** (busy-spin on the measured core, record every gap: ticks, IRQs, SMIs). Phase B is complete except for that.
+- [~] Phase C: sched_latency agrees with cyclictest within ±1 us to p99.9 when the C-state QoS target matches (`docs/validation.md`). 3 repeats agree (p50-p99.9 within 0.4 us run to run). memlat validated against `mem_load_retired.*` / `dtlb_load_misses.*` per load (`scripts/validate-memlat-perf.sh`): every level and the 4K/2M TLB split match the geometry. ipc validated (perf: exactly 4 syscalls, 2 switches, 2 `lo` xmits per UDP round). Phase C complete. Lesson: tracepoint-counted runs inflate latency, so take counts and latencies from separate runs.
 - [ ] Phase D–G: not started
 
 ## Decisions, and where they differ from CLAUDE.md
@@ -44,5 +44,6 @@ DMA-Engine is finished and pushed; reboots and GRUB edits are free. `~/DMA-Engin
 - **THP is `always`** on this box. memlat forces 4K with `MADV_NOHUGEPAGE`, 2M with `MAP_HUGETLB` (`vm.nr_hugepages`).
 
 ## Next steps
-1. Phase B: `ipc_latency.c` (loopback UDP RTT, eventfd wakeup, timer jitter). Last harness test.
-2. Phase D lead: SMIs stall ~2 ms each (rep2 in `docs/validation.md`). Open: memlat DRAM p99.9 is ~2x p50, recurring ~every 30 ms; check sample timestamps.
+1. Phase D: gap detector (`hwgap.c`?): spin on an isolated core reading TSC/CLOCK_MONOTONIC and record every gap above a threshold with its timestamp, lined up against MSR_SMI_COUNT. Gives both SMI duration/frequency and §2.5 timer-interrupt jitter (250 Hz tick on stock vs ~none under nohz_full). SMIs already seen stalling ~2 ms (`docs/validation.md`).
+2. Open threads to test in the matrix: the cross-core ~20 us tail (C-state exit? `cstates` row); UDP slower on SMT siblings; memlat DRAM p99.9 ~2x p50.
+3. Figures done: `docs/imgs/smi_stall_2ms.png`, `docs/imgs/memlat_working_set.png`.

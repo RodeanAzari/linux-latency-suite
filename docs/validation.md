@@ -278,3 +278,52 @@ twice p50. That means about 0.1% of 256-load samples (≈30 µs each) take an ex
 The 4 ms tick (HZ=250) would hit about 1 sample in 130, which lands at p99, and p99 is only
 ~10% above p50. So the p99.9 event recurs roughly every 30 ms. Sample timestamps can show
 its period.
+
+---
+
+# Validation: `ipc_latency`
+
+Two pinned `SCHED_FIFO` 90 threads. `udp`: loopback round trip (8-byte datagram over
+127.0.0.1, echoed). `eventfd`: one-way wakeup, from just before A's `write()` to just after
+B's `read()` returns. 2026-11-04, stock kernel, powersave and turbo on,
+`platform_profile=performance` (`results/validation/ipc/`).
+
+## The mechanics are what they claim
+
+`perf stat -e raw_syscalls:sys_enter,context-switches,cpu-migrations,net:net_dev_xmit`,
+per round (warmup + measured), identical in both passes:
+
+| mode | placement | syscalls | context switches | `net_dev_xmit` | migrations (whole run) |
+|---|---|---:|---:|---:|---:|
+| udp | 2↔2, 2↔6, 2↔3 | 4.00 | 2.000 | 2.000 | 2–3 |
+| eventfd | 2↔2, 2↔6, 2↔3 | 4.00 | 2.000 | 0.000 | 2–3 |
+
+Each UDP round sends two packets through the `lo` device, and eventfd sends none. Migrations
+happen at thread startup only.
+
+**Tracepoints perturb what they count.** The latencies from those perf-wrapped runs were
+inflated: UDP p50 went 4.0 → 4.8 µs same-CPU, and 7.0 → 11.0 µs on SMT siblings. Counts and
+latencies therefore come from separate runs. The latencies below have no perf attached.
+
+## Result (µs; three passes, interleaved)
+
+| mode | placement | p50 | p90 | p99 | p99.9 |
+|---|---|---:|---:|---:|---:|
+| udp RTT | same CPU | 4.0 / 4.1 / 4.0 | 4.1–4.2 | 4.2 | 5.0–5.2 |
+| udp RTT | SMT siblings | 6.9 / 7.1 / 7.0 | 7.0–7.2 | 7.2–7.4 | 9.3–10.2 |
+| udp RTT | cross-core | 4.8 / 4.8 / 4.7 | 4.9 | 5.9–6.2 | 23.5–23.6 |
+| eventfd one-way | same CPU | 1.0 / 1.0 / 0.9 | 1.0 | 1.0 | 1.0–1.1 |
+| eventfd one-way | SMT siblings | 1.4 / 1.4 / 1.4 | 3.8 | 4.3–4.4 | 4.6–4.7 |
+| eventfd one-way | cross-core | 1.5 / 1.5 / 1.5 | 3.0 | 3.1–3.3 | 15.4 |
+
+p50 agrees within 0.2 µs across passes. The clock was not fixed: end-of-run readings ranged
+2.8–4.1 GHz. The results reproduce anyway because each run is short and busy.
+
+Observations, not yet explained:
+- **Cross-core runs have a ~15–24 µs tail at the 0.1–1% level** that SMT siblings don't. It
+  appears in `ctxswitch` too (cross-core p99.9 ≈ 23 µs). Hypothesis: core 3 enters a core
+  C-state between rounds, and a core whose sibling is busy can't. The `cstates` matrix row
+  tests this directly.
+- **UDP is ~45% slower on SMT siblings than across cores at p50** (7.0 vs 4.8 µs), while
+  eventfd and pipe ping-pong are not. The UDP path does several µs of kernel work per side,
+  including softirq delivery. Untested.
