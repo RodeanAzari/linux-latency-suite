@@ -198,3 +198,74 @@ Observations, not yet explained:
   a shallow state. This is untested; idle-state residency (`cpuidle` usage counters) would confirm it.
 - SMT siblings have the fastest cross-CPU p50 but a much wider p90–p99 than separate cores.
 - Cross-core p99.9 (~23 µs) is 3–9× the other placements' p99.9.
+
+---
+
+# Validation: `memlat`
+
+Random-cycle pointer chase over 64-byte lines, 256 dependent loads per sample,
+CPU 2, `SCHED_FIFO` 90. 2026-11-04, stock kernel, clock fixed at **1.6 GHz**:
+`platform_profile=performance`, `performance` governor, turbo off
+(`scripts/validate-memlat-perf.sh`, `results/validation/memlat-perf/`).
+Pages are explicit: `MADV_NOHUGEPAGE` for 4K (THP is `always` on this box, so
+without it "4K" runs silently get hugepages), `MAP_HUGETLB` for 2M.
+
+## The clock must be fixed first
+
+The first sweep ran on stock settings (powersave, turbo on). Memory-bound runs did not
+hold a clock: the monitor logged the measured core at **400 MHz–2.5 GHz** during DRAM-sized
+runs. HWP lowers the clock when the core is mostly stalled. In that sweep 2M pages measured
+*slower* than 4K at DRAM sizes (130 vs 124 ns at 256M), the opposite of TLB theory.
+With the clock fixed, the inversion is gone (below). Per-load latency in ns is meaningless
+without the clock it ran at. The matrix rows that do not fix the clock (`baseline`)
+must be read with the logged frequency.
+
+Fixing the clock exposed a second platform fact: with turbo off, the core sat at
+**800 MHz**, not the 1.6 GHz rated base. The firmware's `balanced` platform profile
+selects cTDP-down:
+
+```
+HWP_CAPABILITIES (0x771)  guaranteed ratio 0x08 (800 MHz)   balanced
+CONFIG_TDP_CONTROL (0x64B) = 1   -> level 1: ratio 8, 10 W
+CONFIG_TDP_NOMINAL (0x648) = 16  -> 1.6 GHz
+platform_profile=performance -> CONFIG_TDP_CONTROL = 0, guaranteed 0x10 (1.6 GHz)
+```
+
+Package power limits (0x610) do not change between profiles. Every sidecar now records
+`platform_profile`.
+
+## Counters agree with the latency plateaus
+
+Each size ran at n=100k and n=300k under `perf stat`. The table shows events per load,
+computed as Δcount / Δloads between the two runs, which cancels chain building and
+pre-faulting exactly. Two event groups of ≤4 counters each, so nothing was multiplexed.
+User-mode events only.
+
+| size | page | L1 miss | L2 miss | L3 miss | STLB hit | page walk | p50 ns/load | cycles |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| 16K | 4K | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 2.59 | 4.1 |
+| 128K | 4K | 1.001 | 0.000 | 0.000 | 0.000 | 0.000 | 7.60 | 12.2 |
+| 2M | 4K | 1.003 | 0.943 | 0.000 | 0.905 | 0.000 | 29.72 | 48 |
+| 4M | 4K | 1.000 | 0.973 | 0.018 | 0.967 | 0.000 | 32.70 | 52 |
+| 4M | 2M | 1.001 | 0.973 | 0.000 | 0.000 | 0.000 | 25.32 | 41 |
+| 64M | 4K | 1.010 | 1.001 | 0.977 | 0.116 | 0.908 | 121.68 | |
+| 64M | 2M | 0.999 | 0.998 | 0.976 | 0.006 | 0.000 | 97.74 | |
+| 256M | 4K | 1.009 | 1.001 | 0.996 | 0.057 | 0.977 | 136.20 | |
+| 256M | 2M | 0.994 | 0.997 | 0.993 | 0.751 | 0.000 | 103.29 | |
+
+Each row's misses match the i5-8365U's geometry: 32K L1d, 256K L2, 6M L3, a 64-entry 4K
+dTLB, a 1536-entry STLB, and 32 dTLB entries for 2M pages. L1 at 4.1 cycles and L2 at 12.2
+match Skylake's published 4–5 and 12. The timer pair (14 ns) is 0.05 ns per load and is
+not subtracted here.
+
+The 4K-vs-2M gap separates cleanly by mechanism:
+- **4M (L3-resident):** 4K pages miss the dTLB and hit the STLB on 97% of loads; 2M pages
+  never miss. Cost: 32.7 − 25.3 = **7.4 ns ≈ 12 cycles per STLB hit**.
+- **64M–256M (DRAM):** 4K pages walk the page tables on 91–98% of loads; 2M pages never
+  walk. Cost: **+24 ns (+25%) at 64M, +33 ns (+32%) at 256M**. The walk itself mostly
+  misses cache as the page tables outgrow it.
+
+Observation, not yet explained: DRAM-sized runs have p99.9 ≈ 270–300 ns/load, more than
+twice p50. That means about 0.1% of 256-load samples (≈30 µs each) take an extra ~40 µs.
+Candidates are the 4 ms timer tick (HZ=250) running against a cold cache, and DRAM refresh.
+The monitor log timestamps can test this.
