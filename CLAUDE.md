@@ -49,8 +49,8 @@ The output is not a number. It is a **matrix**: five latency classes × eight sy
 | Phase | Work | Status |
 |---|---|---|
 | A | Machine prep, baseline kernel, tooling | DONE |
-| B | Measurement harness core | NOT STARTED |
-| C | Validation against reference tools | NOT STARTED |
+| B | Measurement harness core | DONE (timer jitter moved to D) |
+| C | Validation against reference tools | DONE |
 | D | Platform floor: SMI and thermal characterization | NOT STARTED |
 | E | Configuration matrix automation | NOT STARTED |
 | F | PREEMPT_RT build and comparison | NOT STARTED |
