@@ -4,9 +4,13 @@
 Usage: analyze.py FILE [FILE ...]
   *.bin   harness samples: records of (<i8 t_ns, <i8 v_ns)
   other   cyclictest --histfile output (1 us bins)
+memlat samples hold K dependent loads each (sidecar "loads_per_sample");
+they are reported as ns per load instead of us per sample.
 
 All statistics happen here, offline, never in the measurement loop (§3.4).
 """
+import json
+import os
 import sys
 
 import numpy as np
@@ -16,7 +20,14 @@ SAMPLE = np.dtype([("t_ns", "<i8"), ("v_ns", "<i8")])
 
 
 def load_bin(path):
-    return np.fromfile(path, dtype=SAMPLE)["v_ns"] / 1000.0, None
+    """Samples in us, or (memlat) ns per load. Returns (values, unit)."""
+    v = np.fromfile(path, dtype=SAMPLE)["v_ns"]
+    sidecar = path[:-4] + ".json"
+    if os.path.exists(sidecar):
+        k = json.load(open(sidecar))["params"].get("loads_per_sample")
+        if k:
+            return v / k, "ns/load"
+    return v / 1000.0, "us"
 
 
 def load_cyclictest_hist(path):
@@ -45,15 +56,16 @@ def load_cyclictest_hist(path):
 
 
 def main(paths):
-    print(f"{'source':<44}{'n':>8}" + "".join(f"{'p' + str(p):>9}" for p in PCTS) + f"{'max':>9}  (us)")
+    print(f"{'source':<44}{'n':>8}" + "".join(f"{'p' + str(p):>9}" for p in PCTS) + f"{'max':>9}  unit")
     for path in paths:
         if path.endswith(".bin"):
-            us, _ = load_bin(path)
+            us, unit = load_bin(path)
             mx = us.max()
         else:
-            us, mx = load_cyclictest_hist(path)
+            (us, mx), unit = load_cyclictest_hist(path), "us"
         row = np.percentile(us, PCTS)
-        print(f"{path[-44:]:<44}{len(us):>8}" + "".join(f"{v:>9.1f}" for v in row) + f"{mx:>9.1f}")
+        fmt = ">9.2f" if unit == "ns/load" else ">9.1f"
+        print(f"{path[-44:]:<44}{len(us):>8}" + "".join(f"{v:{fmt}}" for v in row) + f"{mx:{fmt}}  {unit}")
 
 
 if __name__ == "__main__":
