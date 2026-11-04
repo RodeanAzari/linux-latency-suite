@@ -1,7 +1,7 @@
 CC ?= gcc
 CFLAGS ?= -O2 -g -std=gnu11 -Wall -Wextra -Werror -pthread
 BUILD := build
-PROGS := sched_latency syscall_bench ctxswitch
+PROGS := sched_latency syscall_bench ctxswitch memlat
 
 all: $(addprefix $(BUILD)/,$(PROGS))
 
