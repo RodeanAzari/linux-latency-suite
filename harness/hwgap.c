@@ -35,7 +35,7 @@ static void usage(void)
 	fprintf(stderr,
 		"usage: hwgap [-c cpu] [-p prio] [-d seconds] [-g gap_ns] [-N max_gaps]\n"
 		"             [-m monitor_cpu] [-o outdir] [-T]\n"
-		"  defaults: -c 2 -p 90 -d 60 -g 1000 -N 2000000 -m 0 -o .\n"
+		"  defaults: -c 2 -p 90 -d 60 -g 300 -N 2000000 -m 0 -o .\n"
 		"  -T  record even if the kernel is tainted by an out-of-tree module\n");
 	exit(2);
 }
@@ -55,7 +55,7 @@ static long read_sysctl(const char *path)
 int main(int argc, char **argv)
 {
 	int cpu = 2, prio = 90, hk = 0, allow_tainted = 0, msr, opt;
-	long dur_s = 60, gap_min = 1000, cap = 2000000, n = 0, overflow = 0;
+	long dur_s = 60, gap_min = 300, cap = 2000000, n = 0, overflow = 0;
 	long iters = 0;
 	const char *outdir = ".";
 	struct lat_env before, after;
