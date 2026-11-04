@@ -50,7 +50,8 @@ DMA-Engine is finished and pushed; reboots and GRUB edits are free. `~/DMA-Engin
 - **Unplugged e1000e is admin-up** (`allow-hotplug enp0s31f6`, DHCP), so the PHY watchdog runs ~0.5 ms every 2 s. **Open decision for the user:** leave it as a baseline interference source for isolation to remove, or take it down platform-wide like the trimmed services.
 
 ## Next steps
-1. Finish the hwlat cross-check (RT kernel, CPUs 2/3, loaded): every SMI should appear in both tools.
+1. hwlat cross-check DONE: 5/5 SMIs matched. Open: hwlat-only ~23 us stalls on RT with turbo (gone at a fixed clock; not seen by hwgap on stock). Test: `hwgap -c 3 -d 60` on RT with turbo on, max 60 s (see the RCU rule below).
+   - **RT rule:** never spin at FIFO > 1 for more than a few seconds on a CPU that isn't `nohz_full` + `rcu_nocbs`. It starves `rcuc/N` and `ktimers/N`, which stalls RCU system-wide (SSH dies until the spin ends). The run script must refuse otherwise.
 2. Phase E: `configs/matrix.json`, `set-config.sh`, `run-suite.sh`, `collect.sh` + systemd unit. Must set `platform_profile=performance` at boot and turn Wi-Fi off and back on with a watchdog.
 3. Open threads for the matrix: cross-core ~20 us tail (C-states?); UDP slower on SMT; memlat DRAM p99.9.
 4. Figures: `smi_stall_2ms.png`, `memlat_working_set.png`, `cpu2_gaps_idle_loaded.png`.

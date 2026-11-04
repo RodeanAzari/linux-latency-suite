@@ -327,3 +327,44 @@ Observations, not yet explained:
 - **UDP is ~45% slower on SMT siblings than across cores at p50** (7.0 vs 4.8 µs), while
   eventfd and pipe ping-pong are not. The UDP path does several µs of kernel work per side,
   including softirq delivery. Untested.
+
+---
+
+# Validation: `hwgap` against the kernel hwlat tracer
+
+The RT kernel has `CONFIG_HWLAT_TRACER`; stock doesn't. On RT, hwlat ran on CPU 3 (interrupts
+disabled, 900 ms per 1 s window, threshold 10 µs, `trace_clock=mono`) while `hwgap` ran on CPU 2,
+20 min, §4.2 load on CPUs 0,1,4,5 (`scripts/validate-hwgap-hwlat.sh`, `analysis/match_hwlat.py`,
+`results/validation/hwgap-hwlat/`). SMIs stop every CPU, so each should appear in both tools.
+
+| t into run (s) | `hwgap` gap (µs) | hwlat (µs) |
+|---:|---:|---:|
+| 36.2 | 2121 | 2113 |
+| 104.9 | 2121 | 2122 |
+| 668.3 | 2109 | 2109 |
+| 1053.5 | 2116 | 2117 |
+| 1131.2 | 2161 | 2146 |
+
+**5 of 5 SMIs** (the MSR counted 5) appear in both tools in the same second, with durations within
+0–15 µs. Three independent sources agree: the MSR counter, a userspace spin on one core, and a
+kernel spin with interrupts disabled on another.
+
+## Unresolved: hwlat-only stalls of ~23 µs
+
+hwlat also reported stalls of 15–60 µs, typically ~23 µs, in nearly every window. Up to ~1,000 per
+window loaded, and hundreds per window **idle and cool** (55–68 °C, 5 min control). With turbo off
+and the clock fixed at 1.6 GHz (performance governor and profile), they vanished: **one** event in
+120 s, a 2.57 ms SMI. On the stock kernel, `hwgap` on CPU 2 (interrupts enabled) does **not** see this
+rate: 9.3/s gaps of 5–100 µs with turbo vs 5.2/s fixed (2 min each, `results/phaseD/stock/clock/`).
+So the stalls depend on turbo, and also on the RT kernel and/or running with interrupts disabled.
+Next test: `hwgap` on CPU 3 under RT with turbo on, 60 s.
+
+## Caution: long RT-priority spins stall RCU on PREEMPT_RT
+
+During this run the T490 stopped answering SSH for exactly the 20 minutes `hwgap` ran. dmesg showed
+`rcu_preempt self-detected stall on CPU 2 ... rcuc=289039 jiffies(starved)` and
+`task systemd:1 blocked for more than 1087 seconds` in `synchronize_rcu`. On PREEMPT_RT, RCU's
+per-CPU work runs in `rcuc/N` at `SCHED_FIFO` 1. A FIFO 90 spin starved it, so no grace period
+completed anywhere. **Rule: on the RT kernel, spin for longer than a few seconds only on CPUs that are
+`nohz_full` + `rcu_nocbs`.** The matrix `rt` row has both on CPUs 2,3,6,7. The same starvation hits
+`ktimers/2`, so timers queued on CPU 2 never fired, which is why this run shows no e1000e watchdog gaps.

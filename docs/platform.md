@@ -130,6 +130,9 @@ Findings:
 
 ## Open items
 
-- Cross-check `hwgap` against the kernel hwlat tracer on the RT kernel, which has `HWLAT_TRACER`
-  (`scripts/validate-hwgap-hwlat.sh`).
+- `hwgap` vs kernel hwlat: done, 5/5 SMIs matched (`docs/validation.md`). Still open: hwlat on RT
+  (interrupts off) sees ~23 µs stalls hundreds of times a second with turbo on, and they vanish at a
+  fixed clock. `hwgap` on stock doesn't see them. Next: `hwgap` on CPU 3 under RT, turbo on, 60 s.
+- The 5–100 µs class above was traced to softirqs, but in duration it overlaps turbo-dependent stalls.
+  On stock it drops from 9.3/s to 5.2/s with the clock fixed (2 min idle runs), so most of it is softirqs.
 - No disk image taken. The machine is reproducible from this document plus the repo: Debian 13 minimal, the package list in `progress.md`, the services above, and the GRUB setup.
