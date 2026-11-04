@@ -267,5 +267,6 @@ The 4K-vs-2M gap separates cleanly by mechanism:
 
 Observation, not yet explained: DRAM-sized runs have p99.9 ≈ 270–300 ns/load, more than
 twice p50. That means about 0.1% of 256-load samples (≈30 µs each) take an extra ~40 µs.
-Candidates are the 4 ms timer tick (HZ=250) running against a cold cache, and DRAM refresh.
-The monitor log timestamps can test this.
+The 4 ms tick (HZ=250) would hit about 1 sample in 130, which lands at p99, and p99 is only
+~10% above p50. So the p99.9 event recurs roughly every 30 ms. Sample timestamps can show
+its period.
