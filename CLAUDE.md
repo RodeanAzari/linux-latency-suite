@@ -52,7 +52,7 @@ The output is not a number. It is a **matrix**: five latency classes × eight sy
 | B | Measurement harness core | DONE (timer jitter moved to D) |
 | C | Validation against reference tools | DONE |
 | D | Platform floor: SMI and thermal characterization | DONE |
-| E | Configuration matrix automation | NOT STARTED |
+| E | Configuration matrix automation | IN PROGRESS (tooling done, campaign staged) |
 | F | PREEMPT_RT build and comparison | NOT STARTED |
 | G | Analysis, plots, report | NOT STARTED |
 
