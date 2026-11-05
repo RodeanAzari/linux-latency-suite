@@ -24,6 +24,7 @@ import numpy as np
 
 PCTS = [50, 90, 99, 99.9, 99.99]
 SAMPLE = np.dtype([("t_ns", "<i8"), ("v_ns", "<i8")])
+MIN_TAIL = 10
 
 
 def load_bin(path):
@@ -38,12 +39,25 @@ def load_bin(path):
     return v / 1000.0, "us", s["t_ns"]
 
 
-def throttle_state(t_ns, monitor_csv):
-    """Per sample: 1 throttled, 0 not, -1 outside the monitor's coverage."""
-    m = np.genfromtxt(monitor_csv, delimiter=",", names=True, dtype=np.int64)
-    moved = (np.diff(m["core_throttle"]) > 0) | (np.diff(m["pkg_throttle"]) > 0)
-    i = np.searchsorted(m["t_ns"], t_ns, side="right")  # sample is in [t[i-1], t[i])
-    inside = (i > 0) & (i < len(m))
+def throttle_state(t_ns, monitor_csv, sidecar):
+    """Per sample: 1 throttled, 0 not, -1 outside the monitor's coverage.
+
+    The sidecar's env_before/env_after readings bound the run, so a run
+    shorter than a few monitor periods is still fully covered.
+    """
+    m = np.genfromtxt(monitor_csv, delimiter=",", names=True, dtype=np.int64, ndmin=1)
+    t, core, pkg = list(m["t_ns"]), list(m["core_throttle"]), list(m["pkg_throttle"])
+    if os.path.exists(sidecar):
+        j = json.load(open(sidecar))
+        for k, at in (("env_before", 0), ("env_after", len(t))):
+            e = j[k]
+            if min(e["core_throttle"], e["pkg_throttle"]) < 0:  # -1 = unreadable
+                continue
+            t.insert(at, e["mono_ns"]), core.insert(at, e["core_throttle"]), pkg.insert(at, e["pkg_throttle"])
+    t, core, pkg = np.array(t), np.array(core), np.array(pkg)
+    moved = (np.diff(core) > 0) | (np.diff(pkg) > 0)
+    i = np.searchsorted(t, t_ns, side="right")  # sample is in [t[i-1], t[i])
+    inside = (i > 0) & (i < len(t))
     state = np.full(len(t_ns), -1)
     state[inside] = moved[i[inside] - 1]
     return state
@@ -83,14 +97,16 @@ def main(paths):
             mx = us.max()
             mon = path[:-4] + ".monitor.csv"
             if os.path.exists(mon):
-                state = throttle_state(t_ns, mon)
+                state = throttle_state(t_ns, mon, path[:-4] + ".json")
         else:
             (us, mx), unit = load_cyclictest_hist(path), "us"
         fmt = ">9.2f" if unit == "ns/load" else ">9.1f"
 
         def row(label, v):
-            p = np.percentile(v, PCTS)
-            print(f"{label:<44}{len(v):>8}" + "".join(f"{x:{fmt}}" for x in p) + f"{v.max():{fmt}}  {unit}")
+            # A percentile with fewer than MIN_TAIL samples beyond it means nothing (§3.3).
+            p = [f"{x:{fmt}}" if len(v) * (1 - q / 100) >= MIN_TAIL else f"{'-':>9}"
+                 for q, x in zip(PCTS, np.percentile(v, PCTS))]
+            print(f"{label:<44}{len(v):>8}" + "".join(p) + f"{v.max():{fmt}}  {unit}")
 
         row(path[-44:], us)
         if state is None:
