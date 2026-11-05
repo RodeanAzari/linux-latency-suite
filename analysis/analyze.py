@@ -54,7 +54,8 @@ def throttle_state(t_ns, monitor_csv, sidecar):
             if min(e["core_throttle"], e["pkg_throttle"]) < 0:  # -1 = unreadable
                 continue
             t.insert(at, e["mono_ns"]), core.insert(at, e["core_throttle"]), pkg.insert(at, e["pkg_throttle"])
-    t, core, pkg = np.array(t), np.array(core), np.array(pkg)
+    o = np.argsort(t, kind="stable")  # the monitor may start before env_before
+    t, core, pkg = np.array(t)[o], np.array(core)[o], np.array(pkg)[o]
     moved = (np.diff(core) > 0) | (np.diff(pkg) > 0)
     i = np.searchsorted(t, t_ns, side="right")  # sample is in [t[i-1], t[i])
     inside = (i > 0) & (i < len(t))
