@@ -1,0 +1,20 @@
+# Boot step of the matrix campaign. Installed and enabled by
+# `scripts/collect.sh init`; @REPO@ and @USER@ are filled in there.
+[Unit]
+Description=Linux latency matrix campaign: run the pending config, reboot into the next
+After=multi-user.target NetworkManager.service
+
+[Service]
+Type=oneshot
+User=@USER@
+WorkingDirectory=@REPO@
+# Wi-Fi radio state persists across reboots in NetworkManager; never leave it off
+ExecStartPre=+/usr/bin/nmcli radio wifi on
+ExecStart=@REPO@/scripts/collect.sh run
+ExecStopPost=+/usr/bin/nmcli radio wifi on
+# Tests have their own timeouts; this is the backstop. On failure the box stays
+# up with Wi-Fi on so the cause can be inspected.
+TimeoutStartSec=90min
+
+[Install]
+WantedBy=multi-user.target
