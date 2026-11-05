@@ -47,7 +47,7 @@ DMA-Engine is finished and pushed; reboots and GRUB edits are free. `~/DMA-Engin
 - **Never measure latency under tracepoints.** `perf stat` with tracepoints inflated ipc latency up to 57%. Counts and latencies come from separate runs.
 - **hwgap threshold 300 ns** (ticks are 0.3-2 us; 1 us missed ~60%).
 - **On 6.12, SCHED_FIFO doesn't own its CPU**: the fair-server lets CFS kworkers preempt it.
-- **Unplugged e1000e is admin-up** (`allow-hotplug enp0s31f6`, DHCP), so the PHY watchdog runs ~0.5 ms every 2 s. **Open decision for the user:** leave it as a baseline interference source for isolation to remove, or take it down platform-wide like the trimmed services.
+- **Unplugged e1000e is admin-up** (`allow-hotplug enp0s31f6`, DHCP), so the PHY watchdog runs ~0.5 ms every 2 s. **Decided (user, 2026-11-04): leave it.** It's a baseline interference source; the isolation rows should show it leaving the measured cores. Keep the port unplugged for the whole campaign: a cable (link up) changes this behaviour and invalidates the comparison.
 
 ## Next steps
 1. hwlat cross-check DONE: 5/5 SMIs matched. Open: hwlat-only ~23 us stalls on RT with turbo (gone at a fixed clock; not seen by hwgap on stock). Test: `hwgap -c 3 -d 60` on RT with turbo on, max 60 s (see the RCU rule below).
