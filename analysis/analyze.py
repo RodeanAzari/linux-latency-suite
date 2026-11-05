@@ -7,6 +7,13 @@ Usage: analyze.py FILE [FILE ...]
 memlat samples hold K dependent loads each (sidecar "loads_per_sample");
 they are reported as ns per load instead of us per sample.
 
+Thermal split (§3.5): when X.monitor.csv sits beside X.bin, each sample is
+placed in the 100 ms monitor interval it fell in (both use CLOCK_MONOTONIC).
+An interval is throttled if the measured core's or the package's throttle
+counter rose during it. The whole interval counts, so the split leans
+towards "throttled". Samples outside the monitor's coverage are left out
+of both rows.
+
 All statistics happen here, offline, never in the measurement loop (§3.4).
 """
 import json
@@ -20,14 +27,26 @@ SAMPLE = np.dtype([("t_ns", "<i8"), ("v_ns", "<i8")])
 
 
 def load_bin(path):
-    """Samples in us, or (memlat) ns per load. Returns (values, unit)."""
-    v = np.fromfile(path, dtype=SAMPLE)["v_ns"]
+    """Samples in us, or (memlat) ns per load. Returns (values, unit, t_ns)."""
+    s = np.fromfile(path, dtype=SAMPLE)
+    v = s["v_ns"]
     sidecar = path[:-4] + ".json"
     if os.path.exists(sidecar):
         k = json.load(open(sidecar))["params"].get("loads_per_sample")
         if k:
-            return v / k, "ns/load"
-    return v / 1000.0, "us"
+            return v / k, "ns/load", s["t_ns"]
+    return v / 1000.0, "us", s["t_ns"]
+
+
+def throttle_state(t_ns, monitor_csv):
+    """Per sample: 1 throttled, 0 not, -1 outside the monitor's coverage."""
+    m = np.genfromtxt(monitor_csv, delimiter=",", names=True, dtype=np.int64)
+    moved = (np.diff(m["core_throttle"]) > 0) | (np.diff(m["pkg_throttle"]) > 0)
+    i = np.searchsorted(m["t_ns"], t_ns, side="right")  # sample is in [t[i-1], t[i])
+    inside = (i > 0) & (i < len(m))
+    state = np.full(len(t_ns), -1)
+    state[inside] = moved[i[inside] - 1]
+    return state
 
 
 def load_cyclictest_hist(path):
@@ -58,14 +77,33 @@ def load_cyclictest_hist(path):
 def main(paths):
     print(f"{'source':<44}{'n':>8}" + "".join(f"{'p' + str(p):>9}" for p in PCTS) + f"{'max':>9}  unit")
     for path in paths:
+        state = None
         if path.endswith(".bin"):
-            us, unit = load_bin(path)
+            us, unit, t_ns = load_bin(path)
             mx = us.max()
+            mon = path[:-4] + ".monitor.csv"
+            if os.path.exists(mon):
+                state = throttle_state(t_ns, mon)
         else:
             (us, mx), unit = load_cyclictest_hist(path), "us"
-        row = np.percentile(us, PCTS)
         fmt = ">9.2f" if unit == "ns/load" else ">9.1f"
-        print(f"{path[-44:]:<44}{len(us):>8}" + "".join(f"{v:{fmt}}" for v in row) + f"{mx:{fmt}}  {unit}")
+
+        def row(label, v):
+            p = np.percentile(v, PCTS)
+            print(f"{label:<44}{len(v):>8}" + "".join(f"{x:{fmt}}" for x in p) + f"{v.max():{fmt}}  {unit}")
+
+        row(path[-44:], us)
+        if state is None:
+            continue
+        thr, cool, out = us[state == 1], us[state == 0], (state < 0).sum()
+        if not len(thr):
+            print(f"{'  no throttling during the run':<44}" + (f" ({out} samples outside monitor)" if out else ""))
+            continue
+        for label, v in ((f"  throttled ({len(thr) / len(us):.1%})", thr), ("  unthrottled", cool)):
+            if len(v):
+                row(label, v)
+        if out:
+            print(f"  ({out} samples outside the monitor's coverage, in neither row)")
 
 
 if __name__ == "__main__":
