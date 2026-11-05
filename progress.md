@@ -1,64 +1,43 @@
 # Progress — Linux Latency Characterization Suite
 
-## Environment (checked 2026-11-02, read-only)
-- Main laptop: Windows 11, `C:\Users\rodea\LinuxLatency`. Not a git repo yet; no GitHub remote.
-- T490: `ssh t490@192.168.40.117`, key login works. `sudo` needs a password.
-- Debian 13 (trixie), kernel 6.12.111+deb13-amd64 (6.12.107 also installed). cmdline: `quiet` only.
-- i5-8365U, 4C/8T. SMT siblings: 0/4, 1/5, 2/6, 3/7. L1d 32K, L2 256K per core; L3 6M shared. 15 GiB RAM, 1 NUMA node.
-- BIOS N2IETA6W (1.84). Secure Boot off. On AC, battery full.
-- TSC: constant + nonstop, current clocksource `tsc`. intel_pstate/powersave, turbo on. intel_idle down to C10.
-- Kconfig: NO_HZ_FULL=y, RCU_NOCB_CPU=y, PREEMPT_DYNAMIC=y (voluntary), HZ=250, **HWLAT_TRACER not set**.
-- Network: SSH is over Wi-Fi (`wlp0s20f3`); Ethernet `enp0s31f6` is down.
-- Not installed: rt-tests, stress-ng, linux-perf, trace-cmd, linux-cpupower, msr-tools, lm-sensors, numpy/matplotlib/pandas.
-- BIOS settings readable as root from `/sys/class/firmware-attributes/thinklmi/attributes/*/current_value`.
-
-## T490 is now dedicated (user, 2026-11-03)
-DMA-Engine is finished and pushed; reboots and GRUB edits are free. `~/DMA-Engine`, buildroot and QEMU are still on disk and unused. Booted stock 6.12.115 with taint 0.
+## Environment
+- Main laptop: Windows 11, `C:\Users\rodea\LinuxLatency`. Repo: private `RodeanAzari/linux-latency-suite` (make public once results and README are ready).
+- T490: `ssh t490@192.168.40.117`, passwordless sudo, repo at `~/linux-latency-suite` (deploy key via `github-latency` SSH alias). Dedicated: reboots and GRUB edits are free.
+- Debian 13 (not 12: minimal and installed; `linux-cpupower` replaces `cpufrequtils`). Stock and RT `6.12.115+deb13.1` installed and `apt-mark hold`. GRUB default is saved-by-name to stock (RT sorts first); RT boots one-shot via `grub-reboot`.
+- SSH is over Wi-Fi only (`wlp0s20f3`); no Ethernet available. Keep `enp0s31f6` unplugged for the whole campaign.
+- Stock Kconfig: NO_HZ_FULL, RCU_NOCB_CPU, PREEMPT_DYNAMIC (voluntary), HZ=250, no HWLAT_TRACER. BIOS settings: `/sys/class/firmware-attributes/thinklmi/attributes/*/current_value` (root).
 
 ## Status
-- [x] Phase A: passwordless sudo; repo at `~/linux-latency-suite` (deploy key via `github-latency` SSH alias); packages installed (`rt-tests stress-ng linux-perf trace-cmd linux-cpupower msr-tools lm-sensors python3-numpy python3-matplotlib python3-pandas`, no kernelshark); stock and RT 6.12.115 installed and held; BIOS recorded; services trimmed; idle baseline taken (`docs/platform.md`). Disk image skipped: the machine is reproducible from the docs.
-- [~] Phase B: `common.c` (pinning, mlockall, FIFO, pre-fault, raw samples, JSON sidecar, 100 ms thermal/SMI monitor, QoS target recorded) `sched_latency`, `syscall_bench` (incl. 14 ns timer overhead), `ctxswitch`, `memlat`, `ipc_latency` (udp RTT, eventfd one-way) done. `analysis/analyze.py` prints percentiles (memlat as ns/load). **§2.5 timer jitter deliberately moved to the Phase D gap detector** (busy-spin on the measured core, record every gap: ticks, IRQs, SMIs). Phase B is complete except for that.
-- [~] Phase C: sched_latency agrees with cyclictest within ±1 us to p99.9 when the C-state QoS target matches (`docs/validation.md`). 3 repeats agree (p50-p99.9 within 0.4 us run to run). memlat validated against `mem_load_retired.*` / `dtlb_load_misses.*` per load (`scripts/validate-memlat-perf.sh`): every level and the 4K/2M TLB split match the geometry. ipc validated (perf: exactly 4 syscalls, 2 switches, 2 `lo` xmits per UDP round). Phase C complete. Lesson: tracepoint-counted runs inflate latency, so take counts and latencies from separate runs.
-- [x] Phase D: `hwgap` gap detector (per-gap SMI attribution) + `analysis/gaps.py`. 20-min idle/loaded runs done (`docs/platform.md`): SMI = 2.1 ms, 0-1/20 min idle, 6/20 min loaded; e1000e watchdog ~0.5 ms every 2 s; load triples softirq gaps on CPU 2; package 100 C under load. hwlat cross-check done (5/5 SMIs). Turbo transition stalls (~14 us, package-wide) found as the second floor term. Thermal split in `analyze.py` (throttled/unthrottled rows per run; percentiles with <10 tail samples hidden). Sustained load: temperature-limited (~18 W < 25 W PL1), throttles ~constantly at 95-98 C, so loaded runs are ~99% throttled.
-- [~] Phase E: tooling built and tested end to end (2026-11-05): `configs/matrix.json` (8 cumulative rows + `spot-nomitigations`), `scripts/set-config.sh`, `scripts/run-suite.sh`, `scripts/collect.sh init|run|status` + `scripts/latency-collect.service`. Two test campaigns (baseline+rt, then rt alone) and the STOP path pass. **Real 27-run queue is staged on the T490 (`~/.latency-campaign`), unit disabled; start = `sudo systemctl enable latency-collect.service && sudo reboot`.** ~11 min/boot, ~5 h total.
-- [ ] Phase F-G: not started (RT runs are row 7 of the matrix)
+- Phases A-D done. Results and findings: `docs/platform.md` (BIOS, services, SMI floor 2.1 ms, e1000e watchdog, thermal: loaded runs ~99% throttled at 95-98 C), `docs/validation.md` (cyclictest ±1 us to p99.9; memlat vs perf counters; ipc; hwlat; turbo stalls ~14 us package-wide per ratio change).
+- **Phase E: 27-run campaign started 2026-11-05 12:33** (expected done ~17:30). Check: `ssh t490@192.168.40.117 "tail -1 ~/.latency-campaign/log"` → `campaign complete`, then `scripts/collect.sh status` for ok/partial/failed/skipped per run.
+- Phase F: no separate campaign; RT is matrix row 7. Throughput cost still to measure (§8).
+- Phase G: not started.
 
-## Decisions, and where they differ from CLAUDE.md
-- **Repo (user):** private `RodeanAzari/linux-latency-suite`; make public once results and README are ready.
-- **No Ethernet available (user).** Measurement runs turn Wi-Fi off, run, then restore it, so the T490 is unreachable during a run. Needs a watchdog/timeout that always restores Wi-Fi; a hang needs a user power-cycle.
-- **Debian 13, not 12.** It is what's installed and it's minimal; reinstalling gains nothing. `cpufrequtils` no longer exists, use `linux-cpupower`.
-- **Isolate whole physical cores:** `isolcpus/nohz_full/rcu_nocbs=2,3,6,7`, `irqaffinity=0,1,4,5`, measure on 2 and 3, load on 0,1,4,5. §4's `isolcpus=2,3` leaves siblings 6,7 running housekeeping and load on the same cores, which would understate isolation and credit its benefit to `nosmt`.
-- **Reject tainted runs:** a run records `/proc/sys/kernel/tainted` and fails if an out-of-tree module is loaded. Needed because the DMA driver shares this machine.
-- **Pin the kernel** (`apt-mark hold`) before the campaign; it already moved from .107 to .111.
-- **Phase D can't use stock `hwlatdetect`** (no HWLAT_TRACER). Plan: read SMI count from MSR 0x34 around every run, plus a TSC-gap spin on an isolated core. Revisit a tracer-enabled kernel in Phase D. The resume bullet naming `hwlatdetect` must follow what we actually use.
-- **Phase F:** PREEMPT_RT is mainline since 6.12, so no patch is needed. Prefer Debian's `linux-image-rt-amd64` for a clean delta. Done: stock and rt 6.12.115 are installed and held. GRUB default is saved-by-name to stock, because the RT kernel sorts first in the menu. Boot RT with `grub-reboot`, one-shot.
-- **SMI rate must be a per-run delta.** About 4,700 SMIs happen during boot; idle steady state is about one per 150 s.
-- **Non-login SSH PATH lacks `/usr/sbin`** (`rdmsr`, `turbostat`, `hwlatdetect`). Scripts set PATH explicitly.
-- **Expect a modest `mitigations=off` result.** This CPU reports Meltdown and MDS "Not affected", so no KPTI, the big syscall cost §2.2 anticipates. Report what we measure.
+## Decisions that override the spec
+- **Isolate whole physical cores:** `isolcpus/nohz_full/rcu_nocbs=2,3,6,7`, `irqaffinity=0,1,4,5`; measure on 2,3, load on 0,1,4,5. §4's `isolcpus=2,3` would leave load on siblings 6,7 and credit isolation's benefit to `nosmt`.
+- **`platform_profile=performance` held fixed for every row, baseline included (user).** `balanced` = cTDP-down (800 MHz with turbo off). Runtime-only: `collect.sh` sets it and fails the run if the readback differs.
+- **e1000e left admin-up (user):** its PHY watchdog (~0.5 ms every 2 s) is a baseline interference source the isolation rows should remove from the measured cores.
+- **Phase D uses `hwgap`** (TSC-gap spin + MSR 0x34 SMI count), not stock `hwlatdetect` (no HWLAT_TRACER). The resume bullet must name what was used.
+- **Timer jitter (§2.5) lives in hwgap**, not ipc_latency.
+- **Busy-loop warmup is ≥200 ms by time**, not only 1000 iterations (powersave ramp).
+- **Campaign:** one boot = one (config, round), idle then loaded; rounds round-robin; boot verified against the row before measuring; 3 min settle (abort: `touch ~/STOP-CAMPAIGN`); Wi-Fi off only during the suite; iTCO watchdog; 2 failed boots → run skipped. Details in `scripts/collect.sh` header.
+- Reject tainted kernels (out-of-tree modules) in every run.
 
-- **cyclictest holds `/dev/cpu_dma_latency=0` by default** (deep C-states off); `--laptop` doesn't. That alone is 115 us vs 2 us p50 here. The harness never sets it; sidecars record it; C-states belong to the matrix `cstates` row.
-- **Busy-loop tests warm up by time (>=200 ms), not just 1000 iterations**: the powersave ramp otherwise makes results track frequency (26 vs 53 ns, same code). Overhead must be re-measured per config.
-- Results written as root are root-owned; clean up with `sudo rm`.
-- Never `pkill -f <name>` over SSH when the SSH command line contains `<name>`: it kills the session (exit 255).
-
-- **cTDP-down under `balanced` (found 2026-11-04).** ThinkPad DYTC `balanced` profile sets CONFIG_TDP_CONTROL=1: guaranteed 800 MHz, so turbo-off runs at 800 MHz. `platform_profile=performance` gives nominal 1.6 GHz. Runtime setting; recorded in every sidecar. **Decided (user, 2026-11-04): `platform_profile=performance` is held fixed for every matrix row, including `baseline`.** It's a platform setting like BIOS, not a knob. It's runtime-only, so the campaign's boot script must set it and fail if it can't.
-- **HWP drops the clock on memory-bound code** (400 MHz–2.5 GHz during DRAM runs on stock). Memory results are only comparable at a fixed clock; `baseline` memlat must be read with logged frequency.
-- **THP is `always`** on this box. memlat forces 4K with `MADV_NOHUGEPAGE`, 2M with `MAP_HUGETLB` (`vm.nr_hugepages`).
-
-- **Never measure latency under tracepoints.** `perf stat` with tracepoints inflated ipc latency up to 57%. Counts and latencies come from separate runs.
-- **hwgap threshold 300 ns** (ticks are 0.3-2 us; 1 us missed ~60%).
-- **On 6.12, SCHED_FIFO doesn't own its CPU**: the fair-server lets CFS kworkers preempt it.
-- **Unplugged e1000e is admin-up** (`allow-hotplug enp0s31f6`, DHCP), so the PHY watchdog runs ~0.5 ms every 2 s. **Decided (user, 2026-11-04): leave it.** It's a baseline interference source; the isolation rows should show it leaving the measured cores. Keep the port unplugged for the whole campaign: a cable (link up) changes this behaviour and invalidates the comparison.
-
-- **Campaign design (2026-11-05):** one boot = one (config, round), idle then loaded in that boot; rounds round-robin (0..8 x3) so overnight drift can't align with a config. Boot is verified against the row (kernel release + every cmdline token) before measuring; runtime setup read back. 3 min settle after boot (abort window, Wi-Fi up). Wi-Fi off only during the suite. iTCO hardware watchdog (`RuntimeWatchdogSec=60`) during the campaign; a run that fails to finish in 2 boots is skipped. Results `results/<config>/run<r>/{idle,loaded}/` + `run.json` + `suite.log`.
-- **`nmcli radio wifi off` persists across reboots**, so the unit turns Wi-Fi on in ExecStartPre/ExecStopPost (as root).
-- **RT kernel has no THP**: `MADV_NOHUGEPAGE` returns EINVAL there; memlat accepts it (4K guaranteed).
-- **Suite per condition:** syscall x4 (incl. `empty` overhead), sched_latency 100k, ctxswitch 2-2/2-6/2-3 (2-6 skipped under nosmt), memlat 16K/128K/2M/64M 4K + 64M 2M, ipc udp/eventfd 2-3, hwgap 60 s on CPU 2. ~3 min.
+## Traps
+- Non-login SSH PATH lacks `/usr/sbin`; scripts export it.
+- `msr` isn't loaded at boot: `modprobe msr` before hwgap.
+- SMI rate must be a per-run delta (~4,700 SMIs during boot).
+- **RT: never spin at FIFO > 1 for more than a few seconds on a CPU that isn't `nohz_full` + `rcu_nocbs`**: starves `rcuc/ktimers`, stalls RCU system-wide, kills SSH.
+- On 6.12, SCHED_FIFO doesn't own its CPU: the fair-server lets CFS kworkers preempt it.
+- RT kernel has no THP: `MADV_NOHUGEPAGE` returns EINVAL (memlat accepts it). Stock THP is `always`.
+- HWP drops the clock on memory-bound code; read baseline memlat with the logged frequency.
+- `nmcli radio wifi off` persists across reboots; the unit turns Wi-Fi on before and after.
+- Never `pkill -f <name>` over SSH when the command line contains `<name>` (kills the session).
+- Results written as root are root-owned: `sudo rm`.
+- hwgap threshold 300 ns (1 us missed ~60% of ticks).
 
 ## Next steps
-1. Turbo-stall question RESOLVED (`docs/validation.md`): each turbo ratio change stalls the whole package ~14 us (cross-CPU gaps start within 5 ns). The ratio depends on the active-core count (MSR 0x1AD: 1-2 cores 4.1 GHz, 3-4 cores 3.8 GHz). Rate: stock 1 core ~30/s, stock 2 cores ~550/s, RT ~710/s. Turbo off removes them, a 3.8 GHz cap removes 97%, the governor does nothing. Repro: `scripts/phase-d-turbo-stall.sh`, `analysis/match_gaps.py`. Phase D DONE.
-   - `msr` isn't loaded at boot; anything that runs hwgap must `modprobe msr`.
-   - **RT rule:** never spin at FIFO > 1 for more than a few seconds on a CPU that isn't `nohz_full` + `rcu_nocbs`. It starves `rcuc/N` and `ktimers/N`, which stalls RCU system-wide (SSH dies until the spin ends). The run script must refuse otherwise.
-2. Phase E: start the staged campaign (user go-ahead), then check `scripts/collect.sh status` for ok/partial/failed/skipped. Then Phase G analysis needs: directory-level summary over results/<config>/run*/, syscall costs printed in ns (analyze.py rounds to 0.1 us).
-3. Open threads for the matrix: cross-core ~20 us tail (C-states?); UDP slower on SMT; memlat DRAM p99.9. One-off step-down at ~570 s of load (3.1->2.8 GHz, throttling stops) seen once with hwgap spinning, not reproduced without it; watch for it in matrix monitor logs.
+1. After the campaign: `collect.sh status`, triage anything not `ok`, record the room temperature the user reports.
+2. Phase G analysis: directory-level summary over `results/<config>/run*/`, syscall costs in ns (analyze.py rounds to 0.1 us), per-knob delta chart, variance vs effect.
+3. Open threads to watch in matrix data: cross-core ~20 us tail (C-states?); UDP slower on SMT; memlat DRAM p99.9; a one-off 3.1→2.8 GHz step-down at ~570 s of load.
 4. Figures: `smi_stall_2ms.png`, `memlat_working_set.png`, `cpu2_gaps_idle_loaded.png`.
