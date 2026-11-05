@@ -349,15 +349,45 @@ disabled, 900 ms per 1 s window, threshold 10 µs, `trace_clock=mono`) while `hw
 0–15 µs. Three independent sources agree: the MSR counter, a userspace spin on one core, and a
 kernel spin with interrupts disabled on another.
 
-## Unresolved: hwlat-only stalls of ~23 µs
+## Resolved: hwlat's extra ~23 µs stalls are turbo transitions
 
 hwlat also reported stalls of 15–60 µs, typically ~23 µs, in nearly every window. Up to ~1,000 per
 window loaded, and hundreds per window **idle and cool** (55–68 °C, 5 min control). With turbo off
 and the clock fixed at 1.6 GHz (performance governor and profile), they vanished: **one** event in
-120 s, a 2.57 ms SMI. On the stock kernel, `hwgap` on CPU 2 (interrupts enabled) does **not** see this
-rate: 9.3/s gaps of 5–100 µs with turbo vs 5.2/s fixed (2 min each, `results/phaseD/stock/clock/`).
-So the stalls depend on turbo, and also on the RT kernel and/or running with interrupts disabled.
-Next test: `hwgap` on CPU 3 under RT with turbo on, 60 s.
+120 s, a 2.57 ms SMI. `hwgap` on stock CPU 2 had not seen this rate, which left two possibilities:
+an RT-kernel effect, or something that needs interrupts disabled.
+
+2026-11-04, 5 s idle runs, 3 each (`scripts/phase-d-turbo-stall.sh`, `results/phaseD/turbo-stall/`):
+
+| Kernel | Spinning cores | Clock | Stalls 10–40 µs (/s) | p50 µs |
+|---|---|---|---:|---:|
+| stock | CPU 3 | turbo on (defaults) | 27–34 | 14 |
+| stock | CPU 3 | fixed 1.6 GHz | 5–9 | 10 |
+| RT | CPU 3 | turbo on (defaults) | 700–720 | 15.6 |
+| RT | CPU 3 | turbo on, performance governor + profile | 726–736 | 15.6 |
+| RT | CPU 3 | fixed 1.6 GHz | ~105, a shorter 6.4 µs population | 6.4 |
+| RT | CPUs 2 + 3 | turbo on | 770–886 | 13.8 |
+| stock | CPUs 2 + 3 | turbo on | 537–568 | 13.9 |
+| stock | CPUs 2 + 3 | turbo on, max 3.8 GHz | 11–22 | 14 |
+
+- **`hwgap` sees them with interrupts enabled** (RT, CPU 3: ~710/s, 1.35% of the CPU lost vs 0.13%
+  fixed). They are not an hwlat artifact.
+- **They are package-wide.** With `hwgap` on CPUs 2 and 3 at once (`analysis/match_gaps.py`),
+  99.8–100% of the 10–40 µs gaps on one core overlap a gap on the other. The starts are 4–5 ns
+  apart (p50; ~11 ns p90) and the durations are equal. Shifting one CPU's gaps gives ≤1% chance
+  overlap. Kernel work on two CPUs cannot start within nanoseconds of each other thousands of times.
+- **The governor doesn't matter; turbo does.** The performance governor with turbo on changes nothing.
+- **Mechanism: turbo ratio limits by active-core count.** MSR 0x1AD: 1–2 active cores → 4.1 GHz,
+  3–4 → 3.8 GHz. With one core busy, the clock changes only if two other cores wake at once. That's
+  rare on stock (~30/s), but common on RT, where per-CPU `ktimers` wake cores together. With two cores
+  busy, any wakeup of a third crosses the boundary, and stock jumps to ~550/s. Capping the clock at
+  3.8 GHz with turbo still on removes 97% of them. That is the causal test. A residual ~15/s of the
+  same simultaneous stall remains under the cap, unexplained.
+
+So each turbo frequency change stops every core for ~14 µs (hwlat reported ~23 µs typical, under
+load; we haven't established why it reads longer). This is a platform floor term, like SMIs: frequent and short where SMIs are rare and
+long. The matrix's `governor` row (turbo off) should remove it, and the credit belongs to turbo-off,
+not to the governor.
 
 ## Caution: long RT-priority spins stall RCU on PREEMPT_RT
 

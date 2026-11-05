@@ -130,9 +130,29 @@ Findings:
 
 ## Open items
 
-- `hwgap` vs kernel hwlat: done, 5/5 SMIs matched (`docs/validation.md`). Still open: hwlat on RT
-  (interrupts off) sees ~23 µs stalls hundreds of times a second with turbo on, and they vanish at a
-  fixed clock. `hwgap` on stock doesn't see them. Next: `hwgap` on CPU 3 under RT, turbo on, 60 s.
-- The 5–100 µs class above was traced to softirqs, but in duration it overlaps turbo-dependent stalls.
-  On stock it drops from 9.3/s to 5.2/s with the clock fixed (2 min idle runs), so most of it is softirqs.
+- `hwgap` vs kernel hwlat: done, 5/5 SMIs matched (`docs/validation.md`).
+- The 5–100 µs class above mixes softirqs with turbo transition stalls (next section), which have
+  the same durations. `gaps.py` classes by duration only, so it can't separate them. Use
+  `match_gaps.py` on a two-core run, or compare against a fixed clock.
+
+## Turbo transition stalls: the second floor term
+
+2026-11-04. Full data in `docs/validation.md` ("Resolved: hwlat's extra ~23 µs stalls").
+
+**Every turbo frequency change stops the whole package for ~14 µs.** With `hwgap` on two cores
+at once, 99.8–100% of their 10–40 µs gaps start within ~5 ns of each other. The turbo ratio
+depends on the active-core count (MSR 0x1AD: 1–2 cores 4.1 GHz, 3–4 cores 3.8 GHz), so the rate
+depends on how many cores are busy and how often others wake:
+
+| Kernel, cores spinning, idle otherwise | Stalls /s |
+|---|---:|
+| stock, 1 core | ~30 |
+| stock, 2 cores | ~550 |
+| RT, 1 core | ~710 (1.35% of CPU time) |
+| stock, 2 cores, max 3.8 GHz (turbo on) | ~15 |
+| turbo off, fixed 1.6 GHz | ≤ 9, and those are softirqs |
+
+The governor doesn't affect it; turbo does. SMIs are the rare, long floor term (2.1 ms, minutes
+apart). Turbo transitions are the frequent, short one. Unlike SMIs, the OS can remove them: turbo
+off removes them entirely, and capping the clock at the all-core ratio (3.8 GHz) removes 97%.
 - No disk image taken. The machine is reproducible from this document plus the repo: Debian 13 minimal, the package list in `progress.md`, the services above, and the GRUB setup.
