@@ -33,7 +33,8 @@ trap cleanup EXIT
 case $LOAD in
 idle) ;;
 loaded)
-	cpus=$(for c in 0 1 4 5; do online $c && printf '%s,' $c; done)
+	cpus=$(for c in 0 1 4 5; do if online $c; then printf '%s,' $c; fi; done)
+	echo "stress-ng on CPUs ${cpus%,}"
 	stress-ng --taskset "${cpus%,}" --cpu 4 --io 2 --vm 2 --vm-bytes 1G --quiet &
 	stress_pid=$!
 	sleep 10 ;;
@@ -47,7 +48,8 @@ sudo sysctl -q vm.nr_hugepages=40	# memlat -H 64M needs 32
 for m in empty getppid mono mono_raw; do t 60 $B/syscall_bench -t $m; done
 t 300 $B/sched_latency					# §2.1, 100k x 1 ms
 t 60 $B/ctxswitch -a 2 -b 2				# §2.3 same CPU
-online 6 && t 60 $B/ctxswitch -a 2 -b 6			#      SMT siblings
+if online 6; then t 60 $B/ctxswitch -a 2 -b 6		#      SMT siblings
+else echo "skip ctxswitch 2-6: CPU 6 offline (nosmt)"; fi
 t 60 $B/ctxswitch -a 2 -b 3				#      cross-core, shared L3
 for s in 16K 128K 2M 64M; do t 120 $B/memlat -s $s; done	# §2.4 L1 L2 L3 DRAM
 t 120 $B/memlat -H -s 64M				#      DRAM, 2M pages

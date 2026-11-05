@@ -78,7 +78,8 @@ static char *alloc_ws(size_t bytes, int huge)
 			 -1, 0);
 		if (p == MAP_FAILED)
 			lat_die("mmap %zu bytes: %s", bytes, strerror(errno));
-		if (madvise(p, bytes, MADV_NOHUGEPAGE))
+		/* EINVAL: kernel built without THP (PREEMPT_RT), so 4 KiB is guaranteed */
+		if (madvise(p, bytes, MADV_NOHUGEPAGE) && errno != EINVAL)
 			lat_die("madvise(MADV_NOHUGEPAGE): %s", strerror(errno));
 	}
 	memset(p, 0, bytes);

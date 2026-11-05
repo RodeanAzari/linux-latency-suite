@@ -132,11 +132,13 @@ run)
 
 	log "wifi off, suite start"
 	sudo nmcli radio wifi off
-	scripts/run-suite.sh "$R/idle" idle > "$R/suite.log" 2>&1 || true
-	scripts/run-suite.sh "$R/loaded" loaded >> "$R/suite.log" 2>&1 || true
+	: > "$R/FAILED"
+	for c in idle loaded; do	# a suite that dies must not look like an empty pass
+		scripts/run-suite.sh "$R/$c" $c >> "$R/suite.log" 2>&1 || echo "run-suite $c exited rc=$?" >> "$R/FAILED"
+	done
 	sudo nmcli radio wifi on
 
-	cat "$R"/idle/FAILED "$R"/loaded/FAILED > "$R/FAILED" 2>/dev/null || true
+	cat "$R"/idle/FAILED "$R"/loaded/FAILED >> "$R/FAILED" 2>/dev/null || true
 	if [ -s "$R/FAILED" ]; then
 		record partial "$(tr '\n' ';' < "$R/FAILED")"
 	else
