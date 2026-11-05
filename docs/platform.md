@@ -128,6 +128,31 @@ Findings:
 - **Under load the package reaches 100 °C and throttles constantly** (package throttle count +62,000
   in 20 min), with the profile at `performance`. Thermal partitioning (§3.5) applies to every loaded run.
 
+## Thermal behaviour under sustained load
+
+`scripts/phase-d-sustained-load.sh`, 15 min of §4.2 load, profile `performance`, logged every 5 s
+(`results/phaseD/sustained/run1.csv`):
+
+- **This machine hits its temperature limit before its power limit.** Package power settles at
+  ~18 W within a minute, under the 25 W PL1. The package then holds 95–98 °C and throttles the
+  whole time (~95 events/s), with CPU 2 at 3.1–3.5 GHz.
+- RAPL limits never moved: MSR and MMIO both 25 W / 29 W. The MMIO PL1 is 12 W under `balanced`;
+  `performance` raises it to 25 W, which is another reason the profile is held fixed.
+- **Under load, throttling is nearly constant, so the "unthrottled" rows are small.** A 5 min
+  loaded `sched_latency` run was 98.7% throttled. `analyze.py` reports both rows anyway and hides
+  percentiles without 10 samples beyond them.
+- **Unexplained, seen once:** in the 20 min Phase D loaded run (hwgap also spinning CPU 2), the
+  platform stepped down at ~570 s: 3.1 → 2.8 GHz, 97 → 88 °C, throttling stopped for the rest of
+  the run. It didn't happen in the 15 min run above, which had no extra spinning core. The monitor
+  logs clock and temperature in every run, so if it recurs during the matrix it will be visible.
+
+### How the thermal split works (`analysis/analyze.py`)
+
+The harness logs throttle counters every 100 ms (`X.monitor.csv`), plus readings before and after
+the run in the sidecar. A sample is **throttled** if it falls in an interval where the measured
+core's or the package's throttle counter rose. The whole 100 ms interval counts, so the split leans
+towards "throttled". The idle runs checked had no throttling at all.
+
 ## Open items
 
 - `hwgap` vs kernel hwlat: done, 5/5 SMIs matched (`docs/validation.md`).
