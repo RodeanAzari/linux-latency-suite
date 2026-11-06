@@ -7,7 +7,8 @@ Usage: summarize.py [RESULTS_DIR] [OUT_CSV]
 Walks RESULTS_DIR/<config>/run<r>/{idle,loaded}/ for every config in
 configs/matrix.json. Latency tests get p50..p99.99 and max (us, or ns/load
 for memlat) plus the thermal context of the run (§3.5): fraction of samples
-in a throttled monitor interval, package temperature and clock. hwgap rows
+in a throttled monitor interval, package temperature, and busy_mhz from
+APERF/MPERF (mhz_mean is scaling_cur_freq: meaningless on nohz_full). hwgap rows
 give gap-size percentiles plus gaps/s and % of time lost, since the gap
 count, not a per-sample latency, is what it measures.
 
@@ -26,6 +27,16 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from analyze import PCTS, load_bin, throttle_state  # noqa: E402
 
 HWGAP = np.dtype([("t_ns", "<i8"), ("gap_ns", "<i8"), ("smi", "<i8")])
+TSC_MHZ = 1895.998  # T490 dmesg "Refined TSC clocksource calibration"; MPERF ticks at this rate
+
+
+def busy_mhz(j):
+    """Measured CPU's clock while not halted, from sidecar APERF/MPERF; NaN for
+    runs that predate those fields. scaling_cur_freq is wrong on nohz_full CPUs."""
+    b, a = j["env_before"], j["env_after"]
+    if min(b.get("aperf", -1), a.get("aperf", -1)) < 0 or a["mperf"] <= b["mperf"]:
+        return float("nan")
+    return TSC_MHZ * (a["aperf"] - b["aperf"]) / (a["mperf"] - b["mperf"])
 
 
 def monitor_context(mon):
@@ -43,7 +54,8 @@ def one(binpath):
     base = binpath[:-4]
     j = json.load(open(base + ".json"))
     row = {"test": os.path.basename(base), "smi_delta": j.get("smi_delta"),
-           "tainted": j.get("tainted"), **monitor_context(base + ".monitor.csv")}
+           "tainted": j.get("tainted"), "busy_mhz": busy_mhz(j),
+           **monitor_context(base + ".monitor.csv")}
     if j["test"] == "hwgap":
         g = np.fromfile(binpath, dtype=HWGAP)
         secs = j["params"]["spin_ns"] / 1e9
@@ -71,9 +83,16 @@ def main(results, out):
     n = df.groupby(["config", "load", "test"])["run"].nunique()
     for k, v in n[n != n.max()].items():
         print(f"WARNING {k}: only {v} runs", file=sys.stderr)
-    if (df["tainted"] != 0).any():
-        print("WARNING tainted kernel in:", df[df["tainted"] != 0][["config", "run"]].drop_duplicates().values.tolist(),
+    # Reject-worthy taint = out-of-tree/unsigned modules, as lat_check_taint.
+    # Bit 2 (CPU_OUT_OF_SPEC) is expected wherever collect.sh wrote MSR 0x1a0
+    # to hold the turbo cap: the msr driver sets it on any userspace write.
+    bad = (df["tainted"] & ((1 << 12) | (1 << 13))) != 0
+    if bad.any():
+        print("WARNING module-tainted kernel in:", df[bad][["config", "run"]].drop_duplicates().values.tolist(),
               file=sys.stderr)
+    msr = (df["tainted"] & (1 << 2)) != 0
+    if msr.any():
+        print("note: taint bit 2 (userspace MSR write, expected) in:", sorted(df[msr]["config"].unique()))
     df.to_csv(out, index=False, float_format="%.4g")
     print(f"{len(df)} rows, {df['config'].nunique()} configs -> {out}")
 

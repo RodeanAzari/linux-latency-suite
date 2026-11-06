@@ -10,10 +10,10 @@
 ## Status
 - Phases A-D done. Results and findings: `docs/platform.md` (BIOS, services, SMI floor 2.1 ms, e1000e watchdog, thermal: loaded runs ~99% throttled at 95-98 C), `docs/validation.md` (cyclictest ±1 us to p99.9; memlat vs perf counters; ipc; hwlat; turbo stalls ~14 us package-wide per ratio change).
 - **Phase E campaign complete 2026-11-05 16:51: 27/27 runs `ok`**, 1.7 GB on the T490 only (`results/<config>/run{1,2,3}`). Rows 5-7 have 30 bins, not 32: ctxswitch 2-6 skipped and logged (CPU 6 offline under nosmt). Room temperature 22 C.
-- **Rows 5-7 rerun in progress (queued 2026-11-05 19:46, ~1.5 h)** after the turbo fix below; confounded originals in `results/superseded-turbo/`. nosmt run1 verified: 1597 MHz, empty syscall 36 ns, getppid 395 ns (the nosmt "speedup" was all turbo). Afterwards: `collect.sh status`, re-run `analysis/summarize.py`. Rows 0-4/8 sidecars predate the aperf/mperf fields; syscall_empty is their clock evidence.
+- **Rows 5-7 rerun complete 2026-11-05 21:14: 9/9 `ok`, every clock check 1600 MHz**, after the turbo fix below; confounded originals in `results/superseded-turbo/` (a limitations-section finding). The nosmt "syscall speedup" was all turbo. Rows 0-4/8 sidecars predate the aperf/mperf fields; syscall_empty is their clock evidence. Rerun kernels carry taint bit 2 (userspace MSR write, expected; harness rejects only module taint).
 - **Outlier to explain, not drop:** `cstates/run2/loaded` is ~2x slower at p50 on every test (getppid 271→545 ns, ctxswitch 9→20 us, hwgap 60x more gaps) at the same 1.6 GHz / 54 C as rounds 1 and 3. Leading hypothesis: a load worker on SMT sibling CPU 6 for the whole run (rows 0-2 don't isolate). Unconfirmed: per-CPU load placement isn't logged. `irqaffinity/run2/loaded` hwgap has a milder late burst.
 - Phase F: no separate campaign; RT is matrix row 7. Throughput cost still to measure (§8).
-- Phase G: not started.
+- Phase G started: `analysis/summarize.py` → `results/summary.csv` (846 rows: per config/run/load/test percentiles, thermal, busy_mhz); `analysis/deltas.py` → `results/deltas.csv` (702 step comparisons, 154 conclusive under §3.6 range rule). Both run on the T490 (no Python on the laptop).
 
 ## Decisions that override the spec
 - **Isolate whole physical cores:** `isolcpus/nohz_full/rcu_nocbs=2,3,6,7`, `irqaffinity=0,1,4,5`; measure on 2,3, load on 0,1,4,5. §4's `isolcpus=2,3` would leave load on siblings 6,7 and credit isolation's benefit to `nosmt`.
@@ -41,7 +41,7 @@
 - `scaling_cur_freq` reads 400 MHz on `nohz_full` CPUs: the monitor's clock column is meaningless from row 3 on. Real clock needs APERF/MPERF.
 
 ## Next steps
-1. Decide how the cstates/run2 outlier is treated (§3.6).
+1. Decide how the cstates/run2 outlier is treated (§3.6): it alone makes most cstates steps inconclusive.
 2. Phase G analysis: directory-level summary over `results/<config>/run*/`, syscall costs in ns (analyze.py rounds to 0.1 us), per-knob delta chart, variance vs effect.
 3. Open threads: getppid median rises 270→390 ns at `isolate` (nohz_full context tracking?); idle sched_latency APERF/MPERF reads ~400 MHz (clock low during wakeups from idle?). Also: cross-core ~20 us tail (C-states?); UDP slower on SMT; memlat DRAM p99.9; a one-off 3.1→2.8 GHz step-down at ~570 s of load.
 4. Figures: `smi_stall_2ms.png`, `memlat_working_set.png`, `cpu2_gaps_idle_loaded.png`.
