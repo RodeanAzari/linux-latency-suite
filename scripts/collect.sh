@@ -99,7 +99,7 @@ run)
 	log "boot: config $id ($name) round $round, attempt $attempts, kernel $(uname -r)"
 
 	if [ "$attempts" -gt $MAX_ATTEMPTS ]; then
-		mkdir -p "$R"; record skipped "did not finish in $MAX_ATTEMPTS boots"; next
+		mkdir -p "$R"; record skipped "no clean run in $MAX_ATTEMPTS boots (hang or clock guard, see log)"; next
 	fi
 
 	# Abort window, with Wi-Fi up
@@ -147,7 +147,8 @@ run)
 	mhz=$(sudo turbostat --quiet --cpu 2 --show Bzy_MHz --interval 3 --num_iterations 1 2>/dev/null | tail -1)
 	wait
 	base=$(($(cat $CPU/cpu2/cpufreq/base_frequency) / 1000))
-	log "clock check: CPU 2 busy at ${mhz:-?} MHz (base $base, no_turbo $noturbo)"
+	tdp=$(($(sudo rdmsr -p 0 -c 0x64b) & 3))
+	log "clock check: CPU 2 busy at ${mhz:-?} MHz (base $base, no_turbo $noturbo), cTDP level $tdp"
 	if [ "$noturbo" = 1 ]; then
 		case $mhz in ''|*[!0-9]*) mhz=0 ;; esac
 		if [ "$mhz" -lt $((base * 97 / 100)) ] || [ "$mhz" -gt $((base * 103 / 100)) ]; then
@@ -162,6 +163,19 @@ run)
 		scripts/run-suite.sh "$R/$c" $c >> "$R/suite.log" 2>&1 || echo "run-suite $c exited rc=$?" >> "$R/FAILED"
 	done
 	sudo nmcli radio wifi on
+
+	# Firmware can drop to cTDP level 1 mid-run with platform_profile unchanged
+	# (progress.md). Such a run measured the wrong clock: keep it aside and
+	# retry this (config, round) on the next boot.
+	[ "$noturbo" = 1 ] && want=$base || want=
+	if ! python3 analysis/clock_guard.py "$R" "$tdp" $want > "$R/clock_guard" 2>&1; then
+		log "clock guard failed: $(head -3 "$R/clock_guard" | tr '\n' ';')"
+		old=results/superseded-ctdp/$name/run$round-$(date +%Y%m%dT%H%M%S)
+		mkdir -p "$(dirname "$old")"; mv "$R" "$old"
+		sudo reboot
+		exit 0
+	fi
+	rm -f "$R/clock_guard"
 
 	cat "$R"/idle/FAILED "$R"/loaded/FAILED >> "$R/FAILED" 2>/dev/null || true
 	if [ -s "$R/FAILED" ]; then

@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #define MSR_SMI_COUNT 0x34
+#define MSR_CONFIG_TDP_CONTROL 0x64b
 #define MSR_MPERF 0xe7
 #define MSR_APERF 0xe8
 #define MONITOR_PERIOD_NS 100000000LL /* 100 ms */
@@ -232,6 +233,11 @@ static void env_read_common(struct lat_env *e)
 	e->smi_count = -1;
 	if (msr_fd >= 0 && pread(msr_fd, &v, sizeof(v), MSR_SMI_COUNT) == sizeof(v))
 		e->smi_count = (int64_t)(v & 0xffffffffu);
+	/* The T490 firmware has dropped to cTDP level 1 (800 MHz with turbo
+	 * off) for minutes while platform_profile still read "performance". */
+	e->tdp_level = -1;
+	if (msr_fd >= 0 && pread(msr_fd, &v, sizeof(v), MSR_CONFIG_TDP_CONTROL) == sizeof(v))
+		e->tdp_level = (long)(v & 3);
 	e->core_throttle = read_long_fd(core_thr_fd);
 	e->pkg_throttle = read_long_fd(pkg_thr_fd);
 	e->pkg_temp_mc = read_long_fd(temp_fd);
@@ -308,11 +314,12 @@ void lat_write_monitor(const char *path)
 
 	if (!f)
 		lat_die("%s: %s", path, strerror(errno));
-	fprintf(f, "t_ns,smi_count,pkg_temp_mc,cur_khz,core_throttle,pkg_throttle\n");
+	fprintf(f, "t_ns,smi_count,pkg_temp_mc,cur_khz,core_throttle,pkg_throttle,tdp_level\n");
 	for (i = 0; i < mon_n; i++)
-		fprintf(f, "%lld,%lld,%ld,%ld,%ld,%ld\n", (long long)mon_rows[i].mono_ns,
+		fprintf(f, "%lld,%lld,%ld,%ld,%ld,%ld,%ld\n", (long long)mon_rows[i].mono_ns,
 			(long long)mon_rows[i].smi_count, mon_rows[i].pkg_temp_mc,
-			mon_rows[i].cur_khz, mon_rows[i].core_throttle, mon_rows[i].pkg_throttle);
+			mon_rows[i].cur_khz, mon_rows[i].core_throttle, mon_rows[i].pkg_throttle,
+			mon_rows[i].tdp_level);
 	if (fclose(f))
 		lat_die("%s: %s", path, strerror(errno));
 }
@@ -351,10 +358,10 @@ static void json_env(FILE *f, const char *key, const struct lat_env *e)
 {
 	fprintf(f, "  \"%s\": {\"mono_ns\": %lld, \"smi_count\": %lld, \"core_throttle\": %ld, "
 		   "\"pkg_throttle\": %ld, \"pkg_temp_mc\": %ld, \"cur_khz\": %ld, "
-		   "\"aperf\": %lld, \"mperf\": %lld}",
+		   "\"aperf\": %lld, \"mperf\": %lld, \"tdp_level\": %ld}",
 		key, (long long)e->mono_ns, (long long)e->smi_count, e->core_throttle,
 		e->pkg_throttle, e->pkg_temp_mc, e->cur_khz, (long long)e->aperf,
-		(long long)e->mperf);
+		(long long)e->mperf, e->tdp_level);
 }
 
 void lat_write_sidecar(const char *path, const char *test, const char *params_json,

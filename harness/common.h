@@ -28,6 +28,8 @@ struct lat_env {
 	long pkg_throttle;       /* package_throttle_count */
 	long pkg_temp_mc;        /* x86_pkg_temp, millidegrees C */
 	long cur_khz;            /* measured CPU's scaling_cur_freq (reads min on nohz_full) */
+	long tdp_level;          /* CONFIG_TDP_CONTROL (0x64B) bits 1:0, package scope, read
+				  * on the housekeeping CPU; firmware can change it unasked */
 	int64_t aperf, mperf;    /* measured CPU's APERF/MPERF; before/after only, -1 in
 				  * monitor rows (reading them there would IPI that CPU) */
 };
