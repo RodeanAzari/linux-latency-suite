@@ -8,6 +8,10 @@
 #   scripts/collect.sh run             the boot step (run by latency-collect.service)
 #   scripts/collect.sh status          queue and per-run outcome
 #
+# SUITE=throughput at init runs scripts/run-throughput.sh instead of the
+# latency suite (Phase F: `SUITE=throughput scripts/collect.sh init 3 6 7`),
+# into results/throughput/<config>/run<round>/. Default SUITE=latency.
+#
 # Abort: `touch ~/STOP-CAMPAIGN` during the settle window after a boot (Wi-Fi is
 # up then). The unit disables itself and the box stays on the current config;
 # `scripts/set-config.sh reset` and a reboot return it to stock.
@@ -69,7 +73,9 @@ case ${1:-} in
 init)
 	rounds=${2:-$(python3 -c "import json;print(json.load(open('$M'))['runs_per_config'])")}
 	[ -s "$S/queue" ] && { echo "campaign already queued: $S/queue (rm -r $S to restart)" >&2; exit 1; }
+	case ${SUITE:=latency} in latency|throughput) ;; *) echo "SUITE=$SUITE: latency|throughput" >&2; exit 2 ;; esac
 	mkdir -p "$S"
+	echo "$SUITE" > "$S/suite"
 	n=$(python3 -c "import json;print(len(json.load(open('$M'))['configs']))")
 	ids=$(seq 0 $((n - 1)))
 	if [ $# -gt 2 ]; then shift 2; ids=$*; fi	# optional: only these config ids
@@ -81,7 +87,7 @@ init)
 	printf '[Manager]\nRuntimeWatchdogSec=60\n' | sudo tee /etc/systemd/system.conf.d/latency-watchdog.conf >/dev/null
 	sudo systemctl daemon-reload
 	sudo systemctl enable $UNIT
-	log "init: $(wc -l < "$S/queue") runs queued"
+	log "init: $(wc -l < "$S/queue") $SUITE runs queued"
 	scripts/set-config.sh "$(head -1 "$S/queue" | cut -d' ' -f1)" | tee -a "$S/log"
 	echo "reboot to start: sudo reboot"
 	;;
@@ -94,7 +100,9 @@ run)
 	read -r id round < "$S/queue"
 	attempts=$(($(cat "$S/attempts") + 1)); echo $attempts > "$S/attempts"
 	set -- $(row "$id"); name=$1 krel=$2 gov=$3 noturbo=$4; shift 4
+	suite=$(cat "$S/suite" 2>/dev/null || echo latency)	# campaigns from before SUITE: latency
 	R=results/$name/run$round
+	[ "$suite" = throughput ] && R=results/throughput/$name/run$round
 	start=$(date +%Y-%m-%dT%H:%M:%S%z)
 	log "boot: config $id ($name) round $round, attempt $attempts, kernel $(uname -r)"
 
@@ -159,9 +167,13 @@ run)
 	log "wifi off, suite start"
 	sudo nmcli radio wifi off
 	: > "$R/FAILED"
-	for c in idle loaded; do	# a suite that dies must not look like an empty pass
-		scripts/run-suite.sh "$R/$c" $c >> "$R/suite.log" 2>&1 || echo "run-suite $c exited rc=$?" >> "$R/FAILED"
-	done
+	if [ "$suite" = throughput ]; then
+		scripts/run-throughput.sh "$R" >> "$R/suite.log" 2>&1 || echo "run-throughput exited rc=$?" >> "$R/FAILED"
+	else
+		for c in idle loaded; do	# a suite that dies must not look like an empty pass
+			scripts/run-suite.sh "$R/$c" $c >> "$R/suite.log" 2>&1 || echo "run-suite $c exited rc=$?" >> "$R/FAILED"
+		done
+	fi
 	sudo nmcli radio wifi on
 
 	# Firmware can drop to cTDP level 1 mid-run with platform_profile unchanged
@@ -170,7 +182,7 @@ run)
 	[ "$noturbo" = 1 ] && want=$base || want=
 	if ! python3 analysis/clock_guard.py "$R" "$tdp" $want > "$R/clock_guard" 2>&1; then
 		log "clock guard failed: $(head -3 "$R/clock_guard" | tr '\n' ';')"
-		old=results/superseded-ctdp/$name/run$round-$(date +%Y%m%dT%H%M%S)
+		old=results/superseded-ctdp/${R#results/}-$(date +%Y%m%dT%H%M%S)
 		mkdir -p "$(dirname "$old")"; mv "$R" "$old"
 		sudo reboot
 		exit 0
