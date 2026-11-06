@@ -36,6 +36,8 @@
 - Never `pkill -f <name>` over SSH when the command line contains `<name>` (kills the session).
 - Results written as root are root-owned: `sudo rm`.
 - hwgap threshold 300 ns (1 us missed ~60% of ticks).
+- **`no_turbo=1` does not hold under `nosmt`** (verified 2026-11-05 with turbostat: CPU 2 at 3300 MHz, its HWP_REQUEST max=16). intel_pstate caps only online threads' HWP requests; parked siblings keep requesting turbo. Setting MISC_ENABLE (0x1a0) bit 38 on every online CPU holds 1600 MHz. Campaign rows 5-7 therefore ran with turbo on: confounded.
+- `scaling_cur_freq` reads 400 MHz on `nohz_full` CPUs: the monitor's clock column is meaningless from row 3 on. Real clock needs APERF/MPERF.
 
 ## Next steps
 1. Decide how the cstates/run2 outlier is treated (§3.6).
