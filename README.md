@@ -75,8 +75,10 @@ Isolating only CPUs 2 and 3, as many guides do, would leave load running on thei
 Every binary uses `mlockall`, verified CPU pinning, `SCHED_FIFO`, pre-faulted buffers, a
 time-based warmup (≥200 ms) and ≥100,000 measured samples. Raw samples are written to binary
 files, and no statistics are computed in the measurement loop. Each run also writes a JSON
-sidecar with the kernel, cmdline, BIOS settings, taint, platform profile, cTDP level,
-APERF/MPERF and SMI count, plus a 100 ms monitor log of temperature and throttle counters.
+sidecar with the kernel, cmdline, taint, governor, turbo, platform profile, cTDP level,
+APERF/MPERF, SMI count and PM QoS target, plus a 100 ms monitor log of temperature, throttle
+counters and cTDP level. BIOS settings were recorded once (`docs/platform.md`) and not changed
+during the campaign. Full method: [`docs/methodology.md`](docs/methodology.md).
 
 ## Per-knob marginal contribution
 
@@ -236,7 +238,8 @@ python3 analysis/plot_tails.py results loaded docs/imgs/tails_loaded.png sched_l
 ```
 
 Machine setup (BIOS state, disabled services, GRUB layout, held kernels) is in
-`docs/platform.md`. The full spec and methodology are in `docs/buildplan.md` (§3).
+`docs/platform.md`, the method in `docs/methodology.md`, and the original spec in
+`docs/buildplan.md`.
 
 ## Repository layout
 
@@ -246,5 +249,5 @@ scripts/    set-config.sh, run-suite.sh, collect.sh + systemd unit; one-off expe
 configs/    matrix.json, the configuration table as data
 analysis/   summarize.py, deltas.py, clock_guard.py, plot_*.py, gaps.py, match_*.py
 results/    summary.csv, deltas.csv, a representative subset of raw samples
-docs/       buildplan.md (spec), platform.md, validation.md, imgs/
+docs/       methodology.md, platform.md, validation.md, buildplan.md (spec), imgs/
 ```

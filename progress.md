@@ -24,6 +24,7 @@
 - **Busy-loop warmup is ≥200 ms by time**, not only 1000 iterations (powersave ramp).
 - **Campaign:** one boot = one (config, round), idle then loaded; rounds round-robin; boot verified against the row before measuring; 3 min settle (abort: `touch ~/STOP-CAMPAIGN`); Wi-Fi off only during the suite; iTCO watchdog; 2 failed boots → run skipped. Details in `scripts/collect.sh` header.
 - Reject tainted kernels (out-of-tree modules) in every run.
+- BIOS settings are not in the sidecars (recorded once in `docs/platform.md`, held fixed); `docs/methodology.md` says so.
 
 ## Traps
 - Non-login SSH PATH lacks `/usr/sbin`; scripts export it.
@@ -44,6 +45,5 @@
 ## Next steps
 1. Verify the cTDP rerun (3 runs `ok`, guard passed, p50s back in line), then rerun `summarize.py` and `deltas.py` (summary.csv/deltas.csv still include the superseded runs), render the three plots into `docs/imgs/`, and resolve the README TODOs (headline, `analysis/table.py results/summary.csv README.md`, rerun outcome). The `deltas.py` docstring still blames cstates/run2 for inconclusive steps; fix it then.
 2. Phase F throughput cost: written 2026-11-06, not yet run. After step 1, on the T490: `stress-ng --stressors` must list cpu switch pipe getpid vm, and one by-hand `scripts/run-throughput.sh /tmp/tp` must produce YAMLs that `analysis/throughput.py` parses (the YAML key was assumed, not seen). Then `SUITE=throughput scripts/collect.sh init 3 6 7` (6 boots, ~10 min each) and `analysis/throughput.py`.
-3. Laptop work left: `docs/methodology.md` (§11 links it; README points at buildplan §3 for now).
-4. **Proper test suite (user wants it, 2026-11-06; after the campaign data is final):** pytest over `analysis/` with synthetic fixtures; cover `summarize.py`, `deltas.py`, `analyze.py` thermal split first. `test_throughput.py` (plain python3, bug-injection checked) is the pattern to fold in.
-5. Open threads: getppid median rises 270→390 ns at `isolate` (nohz_full context tracking?); idle sched_latency APERF/MPERF reads ~400 MHz (clock low during wakeups from idle?). Also: cross-core ~20 us tail (C-states?); UDP slower on SMT; memlat DRAM p99.9; a one-off 3.1→2.8 GHz step-down at ~570 s of load.
+3. **Proper test suite (user wants it, 2026-11-06; after the campaign data is final):** pytest over `analysis/` with synthetic fixtures; cover `summarize.py`, `deltas.py`, `analyze.py` thermal split first. `test_throughput.py` (plain python3, bug-injection checked) is the pattern to fold in.
+4. Open threads: getppid median rises 270→390 ns at `isolate` (nohz_full context tracking?); idle sched_latency APERF/MPERF reads ~400 MHz (clock low during wakeups from idle?). Also: cross-core ~20 us tail (C-states?); UDP slower on SMT; memlat DRAM p99.9; a one-off 3.1→2.8 GHz step-down at ~570 s of load.
