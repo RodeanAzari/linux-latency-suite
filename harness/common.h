@@ -27,7 +27,9 @@ struct lat_env {
 	long core_throttle;      /* measured CPU's core_throttle_count */
 	long pkg_throttle;       /* package_throttle_count */
 	long pkg_temp_mc;        /* x86_pkg_temp, millidegrees C */
-	long cur_khz;            /* measured CPU's scaling_cur_freq */
+	long cur_khz;            /* measured CPU's scaling_cur_freq (reads min on nohz_full) */
+	int64_t aperf, mperf;    /* measured CPU's APERF/MPERF; before/after only, -1 in
+				  * monitor rows (reading them there would IPI that CPU) */
 };
 
 static inline int64_t lat_now_ns(void)

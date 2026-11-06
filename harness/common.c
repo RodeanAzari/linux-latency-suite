@@ -17,6 +17,8 @@
 #include <unistd.h>
 
 #define MSR_SMI_COUNT 0x34
+#define MSR_MPERF 0xe7
+#define MSR_APERF 0xe8
 #define MONITOR_PERIOD_NS 100000000LL /* 100 ms */
 #define TAINT_OOT_MODULE (1L << 12)
 #define TAINT_UNSIGNED_MODULE (1L << 13)
@@ -125,6 +127,7 @@ void *lat_alloc(size_t bytes)
 /* ---- sensors ---- */
 
 static int msr_fd = -1, temp_fd = -1, freq_fd = -1, core_thr_fd = -1, pkg_thr_fd = -1;
+static int clk_msr_fd = -1; /* measured CPU's msr device, for APERF/MPERF */
 static long dma_lat_before = -1;
 
 /* Current PM QoS CPU latency target in us (2000000000 = unconstrained), or -1.
@@ -186,6 +189,12 @@ void lat_sensors_open(int meas_cpu, int hk_cpu)
 	if (temp_fd < 0)
 		fprintf(stderr, "warning: no x86_pkg_temp thermal zone (recorded as -1)\n");
 
+	/* Busy clock = TSC rate * dAPERF/dMPERF between before and after.
+	 * scaling_cur_freq is no substitute: on nohz_full CPUs it reads the
+	 * policy minimum. */
+	snprintf(path, sizeof(path), "/dev/cpu/%d/msr", meas_cpu);
+	clk_msr_fd = open_ro(path, 0);
+
 	snprintf(path, sizeof(path), "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq",
 		 meas_cpu);
 	freq_fd = open_ro(path, 1);
@@ -198,7 +207,24 @@ void lat_sensors_open(int meas_cpu, int hk_cpu)
 	pkg_thr_fd = open_ro(path, 1);
 }
 
+static void env_read_common(struct lat_env *e);
+
+/* Before/after snapshot. The APERF/MPERF reads may IPI the measured CPU
+ * (when the caller isn't on it), which is harmless outside the loop and
+ * why the monitor thread never takes them. */
 void lat_env_read(struct lat_env *e)
+{
+	uint64_t v;
+
+	env_read_common(e);
+	e->aperf = e->mperf = -1;
+	if (clk_msr_fd >= 0 && pread(clk_msr_fd, &v, sizeof(v), MSR_APERF) == sizeof(v))
+		e->aperf = (int64_t)v;
+	if (clk_msr_fd >= 0 && pread(clk_msr_fd, &v, sizeof(v), MSR_MPERF) == sizeof(v))
+		e->mperf = (int64_t)v;
+}
+
+static void env_read_common(struct lat_env *e)
 {
 	uint64_t v;
 
@@ -227,8 +253,11 @@ static void *mon_main(void *arg)
 
 	(void)arg;
 	while (!atomic_load(&mon_stop)) {
-		if (mon_n < mon_cap)
-			lat_env_read(&mon_rows[mon_n++]);
+		if (mon_n < mon_cap) {
+			env_read_common(&mon_rows[mon_n]);
+			mon_rows[mon_n].aperf = mon_rows[mon_n].mperf = -1;
+			mon_n++;
+		}
 		else
 			mon_overflow = 1;
 		next += MONITOR_PERIOD_NS;
@@ -321,9 +350,11 @@ void lat_write_samples(const char *path, const lat_sample_t *buf, long n)
 static void json_env(FILE *f, const char *key, const struct lat_env *e)
 {
 	fprintf(f, "  \"%s\": {\"mono_ns\": %lld, \"smi_count\": %lld, \"core_throttle\": %ld, "
-		   "\"pkg_throttle\": %ld, \"pkg_temp_mc\": %ld, \"cur_khz\": %ld}",
+		   "\"pkg_throttle\": %ld, \"pkg_temp_mc\": %ld, \"cur_khz\": %ld, "
+		   "\"aperf\": %lld, \"mperf\": %lld}",
 		key, (long long)e->mono_ns, (long long)e->smi_count, e->core_throttle,
-		e->pkg_throttle, e->pkg_temp_mc, e->cur_khz);
+		e->pkg_throttle, e->pkg_temp_mc, e->cur_khz, (long long)e->aperf,
+		(long long)e->mperf);
 }
 
 void lat_write_sidecar(const char *path, const char *test, const char *params_json,

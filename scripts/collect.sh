@@ -3,7 +3,7 @@
 # boot matches the row, apply its runtime setup, run the suite idle then
 # loaded with Wi-Fi off, record, point GRUB at the next row, reboot.
 #
-#   scripts/collect.sh init [rounds]   queue every config x rounds (round-robin),
+#   scripts/collect.sh init [rounds [id ...]]  queue configs (default all) x rounds (round-robin),
 #                                      install + enable the unit, reboot into the first
 #   scripts/collect.sh run             the boot step (run by latency-collect.service)
 #   scripts/collect.sh status          queue and per-run outcome
@@ -71,7 +71,9 @@ init)
 	[ -s "$S/queue" ] && { echo "campaign already queued: $S/queue (rm -r $S to restart)" >&2; exit 1; }
 	mkdir -p "$S"
 	n=$(python3 -c "import json;print(len(json.load(open('$M'))['configs']))")
-	for r in $(seq 1 "$rounds"); do for i in $(seq 0 $((n - 1))); do echo "$i $r"; done; done > "$S/queue"
+	ids=$(seq 0 $((n - 1)))
+	if [ $# -gt 2 ]; then shift 2; ids=$*; fi	# optional: only these config ids
+	for r in $(seq 1 "$rounds"); do for i in $ids; do echo "$i $r"; done; done > "$S/queue"
 	echo 0 > "$S/attempts"
 	sed "s|@REPO@|$PWD|; s|@USER@|$(id -un)|" scripts/$UNIT | sudo tee /etc/systemd/system/$UNIT >/dev/null
 	# Hardware watchdog (iTCO): a hard kernel hang resets the box instead of stalling
@@ -128,7 +130,30 @@ run)
 		[ "$(cat "$g")" = "$gov" ] || bad="$bad $g"
 	done
 	[ "$(cat $CPU/intel_pstate/no_turbo)" = "$noturbo" ] || bad="$bad no_turbo"
+	# no_turbo only caps online threads' HWP requests; under nosmt the parked
+	# siblings still ask for turbo and the core runs at 3.3 GHz. The
+	# MISC_ENABLE turbo-disable bit (0x1a0 bit 38) holds the cap.
+	sudo modprobe msr
+	for c in $(cd $CPU && ls -d cpu[0-9]* | tr -d cpu); do
+		[ "$(cat $CPU/cpu$c/online 2>/dev/null || echo 1)" = 1 ] || continue
+		v=$(sudo rdmsr -p "$c" -c 0x1a0)
+		if [ "$noturbo" = 1 ]; then v=$((v | (1 << 38))); else v=$((v & ~(1 << 38))); fi
+		sudo wrmsr -p "$c" 0x1a0 "$v"
+	done
 	[ -z "$bad" ] || { record failed "runtime setup: $bad"; next; }
+	# Trust the measured clock, not the knob: spin CPU 2 and read its busy MHz
+	taskset -c 2 sh -c 'e=$(($(date +%s)+5)); while [ $(date +%s) -lt $e ]; do :; done' &
+	sleep 1
+	mhz=$(sudo turbostat --quiet --cpu 2 --show Bzy_MHz --interval 3 --num_iterations 1 2>/dev/null | tail -1)
+	wait
+	base=$(($(cat $CPU/cpu2/cpufreq/base_frequency) / 1000))
+	log "clock check: CPU 2 busy at ${mhz:-?} MHz (base $base, no_turbo $noturbo)"
+	if [ "$noturbo" = 1 ]; then
+		case $mhz in ''|*[!0-9]*) mhz=0 ;; esac
+		if [ "$mhz" -lt $((base * 97 / 100)) ] || [ "$mhz" -gt $((base * 103 / 100)) ]; then
+			record failed "clock check: CPU 2 at $mhz MHz, want $base (no_turbo=1)"; next
+		fi
+	fi
 
 	log "wifi off, suite start"
 	sudo nmcli radio wifi off
