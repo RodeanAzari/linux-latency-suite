@@ -31,7 +31,7 @@ It goes on the user's GitHub, website and resume, so decisions also serve how it
 | B | Measurement harness core | DONE (timer jitter moved to D) |
 | C | Validation against reference tools | DONE |
 | D | Platform floor: SMI and thermal characterization | DONE |
-| E | Configuration matrix automation | IN PROGRESS (tooling done, campaign running) |
+| E | Configuration matrix automation | DONE (27/27 runs ok, 2026-11-05) |
 | F | PREEMPT_RT build and comparison | NOT STARTED |
 | G | Analysis, plots, report | NOT STARTED |
 
