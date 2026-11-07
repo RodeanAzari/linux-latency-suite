@@ -25,7 +25,7 @@
 - **Busy-loop warmup is ≥200 ms by time**, not only 1000 iterations (powersave ramp).
 - **Campaign:** one boot = one (config, round), idle then loaded; rounds round-robin; boot verified against the row before measuring; 3 min settle (abort: `touch ~/STOP-CAMPAIGN`); Wi-Fi off only during the suite; iTCO watchdog; 2 failed boots → run skipped. Details in `scripts/collect.sh` header.
 - Reject tainted kernels (out-of-tree modules) in every run.
-- **RT kernel = Debian's packaged `6.12.115+deb13.1-rt-amd64`, not §6's kernel.org + RT patch build (Claude's recommendation 2026-11-07, pending user OK).** Same source package (6.12.115-2) as stock, only `CONFIG_PREEMPT_RT=y`; PREEMPT_RT is mainline since 6.12. Cleaner stock-vs-RT delta than a hand build.
+- **RT kernel = Debian's packaged `6.12.115+deb13.1-rt-amd64`, not §6's kernel.org + RT patch build (user, 2026-11-07).** Same source package (6.12.115-2) as stock, only `CONFIG_PREEMPT_RT=y`; PREEMPT_RT is mainline since 6.12. Cleaner stock-vs-RT delta than a hand build.
 - BIOS settings are not in the sidecars (recorded once in `docs/platform.md`, held fixed); `docs/methodology.md` says so.
 
 ## Traps
@@ -45,5 +45,5 @@
 - `scaling_cur_freq` reads 400 MHz on `nohz_full` CPUs: the monitor's clock column is meaningless from row 3 on. Real clock needs APERF/MPERF.
 
 ## Next steps
-1. Demo evidence (user records): asciinema of a campaign boot; see session notes for other demos.
+1. Demos: `scripts/demo-smi.sh` and `scripts/demo-clock-guard.sh` written and tested 2026-11-07; user records them on the T490 (`~/venv-cast/bin/asciinema rec -i 1 -c <script> <cast>`), then `~/agg` -> GIF in `docs/imgs/` and a README demo section. Campaign-boot cast still optional.
 2. Open threads: getppid median rises 270→390 ns at `isolate` (nohz_full context tracking?); idle sched_latency APERF/MPERF reads ~400 MHz (clock low during wakeups from idle?). Also: cross-core ~20 us tail (C-states?); UDP slower on SMT; memlat DRAM p99.9; a one-off 3.1→2.8 GHz step-down at ~570 s of load.
