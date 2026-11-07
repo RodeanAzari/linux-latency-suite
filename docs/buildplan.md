@@ -1,6 +1,6 @@
 # Build plan — Linux Latency Characterization Suite
 
-The full project spec, moved out of CLAUDE.md so it is not loaded every turn. Section numbers are unchanged: every `§N` reference in code, scripts and docs points here. Live status is in CLAUDE.md ("Current status"); decisions that override this spec are in `progress.md`.
+The full project spec, as written before the work started. Every `§N` reference in code, scripts and docs points here. Where the project departed from it, `docs/methodology.md` says so.
 
 ## What this is
 

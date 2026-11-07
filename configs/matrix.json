@@ -1,5 +1,5 @@
 {
-  "comment": "CLAUDE.md §4 as data. Rows are cumulative and written out in full. Every row also gets platform_profile=performance (fixed platform setting, progress.md). Measured CPUs 2,3; load and housekeeping on 0,1,4,5.",
+  "comment": "docs/buildplan.md §4 as data. Rows are cumulative and written out in full. Every row also gets platform_profile=performance (fixed platform setting, docs/methodology.md). Measured CPUs 2,3; load and housekeeping on 0,1,4,5.",
   "runs_per_config": 3,
   "kernels": {"stock": "6.12.115+deb13.1-amd64", "rt": "6.12.115+deb13.1-rt-amd64"},
   "configs": [

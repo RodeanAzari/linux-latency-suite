@@ -10,3 +10,8 @@ results/**/*.bin
 __pycache__/
 *.pyc
 .venv/
+
+# Claude Code session files (local only)
+CLAUDE.md
+progress.md
+.claude/

@@ -177,7 +177,7 @@ run)
 	sudo nmcli radio wifi on
 
 	# Firmware can drop to cTDP level 1 mid-run with platform_profile unchanged
-	# (progress.md). Such a run measured the wrong clock: keep it aside and
+	# (docs/methodology.md). Such a run measured the wrong clock: keep it aside and
 	# retry this (config, round) on the next boot.
 	[ "$noturbo" = 1 ] && want=$base || want=
 	if ! python3 analysis/clock_guard.py "$R" "$tdp" $want > "$R/clock_guard" 2>&1; then

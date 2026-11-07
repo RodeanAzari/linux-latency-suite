@@ -180,4 +180,4 @@ depends on how many cores are busy and how often others wake:
 The governor doesn't affect it; turbo does. SMIs are the rare, long floor term (2.1 ms, minutes
 apart). Turbo transitions are the frequent, short one. Unlike SMIs, the OS can remove them: turbo
 off removes them entirely, and capping the clock at the all-core ratio (3.8 GHz) removes 97%.
-- No disk image taken. The machine is reproducible from this document plus the repo: Debian 13 minimal, the package list in `progress.md`, the services above, and the GRUB setup.
+- No disk image taken. The machine is reproducible from this document plus the repo: Debian 13 minimal, the package list in the README, the services above, and the GRUB setup.

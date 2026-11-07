@@ -16,7 +16,7 @@ Usage: clock_guard.py RUN_DIR TDP_LEVEL [BASE_MHZ]
 
 The T490 firmware has switched the package to cTDP level 1 (800 MHz with
 turbo off) for ~3 minutes while platform_profile still read "performance",
-halving every clock-bound result (progress.md). Prints one line per problem
+halving every clock-bound result (README, Limitations). Prints one line per problem
 and exits 1 if there are any.
 """
 import glob

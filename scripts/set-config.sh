@@ -37,7 +37,7 @@ printf '# written by scripts/set-config.sh: config %s (%s)\nGRUB_CMDLINE_LINUX_D
 	"$1" "$NAME" "$CMDLINE" | sudo tee $DROPIN >/dev/null
 sudo update-grub 2>/dev/null
 
-# Saved default stays stock (progress.md); RT is one-shot only.
+# Saved default stays stock (docs/platform.md); RT is one-shot only.
 case $KREL in
 *-rt-*) sudo grub-reboot "$SUB>Debian GNU/Linux, with Linux $KREL" ;;
 *)      sudo grub-editenv - unset next_entry ;;

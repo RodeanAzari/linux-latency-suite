@@ -57,7 +57,7 @@ t 60 $B/ipc_latency -t udp				# §2.5
 t 60 $B/ipc_latency -t eventfd
 
 # Gap detector (Phase D). On RT, a long FIFO spin on a CPU that is not
-# nohz_full starves rcuc/ktimers and stalls RCU system-wide (progress.md).
+# nohz_full starves rcuc/ktimers and stalls RCU system-wide (docs/validation.md).
 if uname -r | grep -q -- -rt- && ! grep -qE '(^|[,-])2([,-]|$)' /sys/devices/system/cpu/nohz_full; then
 	echo "skip hwgap: RT kernel without nohz_full on CPU 2" | tee -a "$O/FAILED"
 else
