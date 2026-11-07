@@ -13,7 +13,7 @@ compared with config 0. For each (step, load, test, percentile):
 
 and the step is "inconclusive" when |delta| <= spread: the configs have
 not been shown to differ (§3.6). The spread is the plain range of 3 runs,
-so one outlier run (cstates/run2) makes its steps inconclusive by design.
+so one outlier run makes its steps inconclusive by design.
 """
 import json
 import sys

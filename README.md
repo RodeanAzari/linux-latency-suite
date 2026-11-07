@@ -14,8 +14,7 @@ Debian 6.12.115 kernels.
 > the **delta between configurations on the same hardware**, plus a named and measured
 > platform floor.
 
-<!-- TODO(after cTDP rerun): replace with the final headline paragraph. -->
-**Headline findings** *(provisional: three runs are being repeated, see Limitations)*:
+**Headline findings:**
 - **The platform floor is firmware.** A System Management Interrupt takes the CPU away for
   **2.1 ms**, about 6 times per 20 minutes under load. No kernel setting can prevent it, so it sets the
   worst case for every configuration, PREEMPT_RT included.
@@ -27,7 +26,10 @@ Debian 6.12.115 kernels.
 - **Turning turbo off makes every CPU-bound path 1.7–3.1x slower at p50** (syscalls,
   context switches, IPC, cache hits; 1.6 GHz instead of up to 4.1 GHz). DRAM latency barely
   changes. What it buys is determinism: every turbo ratio change stalls the whole package for ~14 µs.
-- **Only 154 of 702 measured knob effects exceed reboot-to-reboot spread.** Most "results"
+- **PREEMPT_RT trims the loaded wakeup tail, not the median.** On top of every other knob it
+  cuts loaded timer-wakeup p99.9 from 21.6 to 13.8 µs (−36%). p50 and every idle percentile
+  stay within run-to-run spread.
+- **Only 237 of 702 measured knob effects exceed reboot-to-reboot spread.** Most "results"
   a single run would have shown are noise.
 
 ## The matrix
@@ -82,7 +84,6 @@ during the campaign. Full method: [`docs/methodology.md`](docs/methodology.md).
 
 ## Per-knob marginal contribution
 
-<!-- TODO(after cTDP rerun): python analysis/plot_knobs.py, commit docs/imgs/knob_deltas_p99.9.png -->
 ![Per-knob change in p99.9 latency, idle and loaded](docs/imgs/knob_deltas_p99.9.png)
 
 Each cell is one knob's step: the median of 3 runs against the median of the previous config's
@@ -94,8 +95,6 @@ change was smaller than the spread between that config's own reboots, so they ar
 
 ## Results matrix
 
-<!-- TODO(after cTDP rerun): regenerate with python analysis/table.py results/summary.csv README.md -->
-*Provisional: `cstates`, `irqaffinity` and `nomitigations` each include one run being repeated (see Limitations).*
 
 <!-- matrix:begin -->
 **idle** (p50 / p99 / p99.9)
@@ -104,11 +103,11 @@ change was smaller than the spread between that config's own reboots, so they ar
 |---|---:|---:|---:|---:|---:|---:|
 | `baseline` | 3 | 106 / 244 / 258 | 106 / 161 / 163 | 4.53 / 4.95 / 23 | 4.62 / 5.74 / 23.3 | 126 / 139 / 288 |
 | `governor` | 3 | 130 / 264 / 275 | 270 / 409 / 413 | 7.66 / 8.52 / 11.1 | 14.3 / 15 / 18.9 | 122 / 136 / 286 |
-| `cstates` | 3 | 14.1 / 15.9 / 23.9 | 270 / 409 / 412 | 8.98 / 9.36 / 12.9 | 14.5 / 15.1 / 19.3 | 123 / 137 / 287 |
+| `cstates` | 3 | 14.1 / 15.9 / 23.9 | 271 / 409 / 412 | 8.93 / 9.28 / 12.8 | 14.5 / 15.1 / 19 | 122 / 136 / 286 |
 | `isolate` | 3 | 15.9 / 20.2 / 21.1 | 394 / 533 / 541 | 10 / 10.5 / 10.7 | 16 / 16.6 / 16.8 | 122 / 126 / 289 |
-| `irqaffinity` | 3 | 15.9 / 20.2 / 21.1 | 389 / 528 / 538 | 9.96 / 10.4 / 10.5 | 16 / 16.6 / 16.8 | 122 / 125 / 289 |
+| `irqaffinity` | 3 | 16.2 / 19.4 / 20.5 | 389 / 528 / 538 | 9.96 / 10.4 / 10.5 | 16 / 16.6 / 16.8 | 122 / 125 / 289 |
 | `nosmt` | 3 | 15.9 / 20.2 / 20.6 | 391 / 528 / 536 | 10.1 / 10.4 / 10.6 | 15.6 / 16.3 / 16.6 | 122 / 126 / 289 |
-| `nomitigations` | 3 | 14.8 / 38.3 / 38.9 | 317 / 344 / 350 | 9.43 / 9.7 / 9.88 | 14.5 / 15 / 15.2 | 122 / 125 / 289 |
+| `nomitigations` | 3 | 15 / 22 / 22.9 | 317 / 346 / 353 | 9.32 / 9.59 / 9.75 | 14.4 / 14.9 / 15.1 | 122 / 125 / 289 |
 | `rt` | 3 | 14.9 / 21.2 / 21.6 | 313 / 341 / 346 | 9.87 / 10.2 / 10.3 | 15.9 / 16.4 / 16.5 | 122 / 126 / 289 |
 | *`spot-nomitigations`* | 3 | 108 / 244 / 258 | 75 / 78 / 81 | 4.15 / 4.82 / 22.7 | 4.22 / 5.23 / 22.8 | 126 / 139 / 288 |
 
@@ -118,11 +117,11 @@ change was smaller than the spread between that config's own reboots, so they ar
 |---|---:|---:|---:|---:|---:|---:|
 | `baseline` | 3 | 41.6 / 60.2 / 72.5 | 125 / 193 / 233 | 4.01 / 4.66 / 8.47 | 6.05 / 6.89 / 20.7 | 99.5 / 114 / 174 |
 | `governor` | 3 | 50.7 / 63.2 / 66.8 | 270 / 409 / 413 | 7.75 / 9.18 / 15.4 | 14.4 / 18.1 / 26.9 | 124 / 185 / 282 |
-| `cstates` | 3 | 4.33 / 10.1 / 19.8 | 272 / 407 / 410 | 9.05 / 9.51 / 15.2 | 14.7 / 18 / 22.3 | 124 / 217 / 299 |
+| `cstates` | 3 | 3.98 / 9.67 / 16.5 | 271 / 407 / 410 | 8.98 / 9.47 / 15 | 14.6 / 16.4 / 21.2 | 123 / 213 / 292 |
 | `isolate` | 3 | 4.6 / 11.1 / 19.6 | 390 / 529 / 537 | 9.96 / 11.7 / 13.1 | 16 / 19.7 / 22.2 | 124 / 193 / 290 |
-| `irqaffinity` | 3 | 5.16 / 14.3 / 21.7 | 389 / 529 / 538 | 10 / 11.6 / 12.9 | 16.1 / 19.9 / 22.2 | 125 / 164 / 297 |
+| `irqaffinity` | 3 | 4.65 / 12.5 / 21.7 | 390 / 530 / 539 | 10 / 11.6 / 12.9 | 16 / 18.3 / 20 | 125 / 164 / 294 |
 | `nosmt` | 3 | 4.42 / 9.87 / 22.5 | 396 / 533 / 541 | 10.1 / 10.6 / 11.2 | 15.8 / 16.6 / 18.2 | 123 / 133 / 293 |
-| `nomitigations` | 3 | 4.16 / 9.03 / 19.5 | 312 / 339 / 431 | 9.26 / 9.7 / 10.2 | 14.3 / 14.7 / 14.9 | 122 / 131 / 291 |
+| `nomitigations` | 3 | 4.16 / 9.03 / 21.6 | 312 / 339 / 358 | 9.26 / 9.73 / 11 | 14.3 / 14.7 / 14.9 | 123 / 131 / 291 |
 | `rt` | 3 | 4.14 / 7.37 / 13.8 | 311 / 343 / 393 | 9.92 / 10.3 / 10.6 | 16 / 16.4 / 16.6 | 123 / 131 / 292 |
 | *`spot-nomitigations`* | 3 | 36.4 / 57.5 / 73.8 | 89 / 100 / 117 | 3.63 / 4.26 / 8.66 | 5.53 / 6.25 / 19.9 | 99.5 / 114 / 168 |
 
@@ -195,11 +194,14 @@ A failed or skipped test is recorded as `FAILED` in `run.json`, never left silen
   at 3.3 GHz. An apparent "nosmt makes syscalls faster" result was entirely clock. Those runs
   were superseded (`results/superseded-turbo/`) and rerun with turbo disabled through
   MSR 0x1A0 bit 38 on every CPU.
-- **Firmware changed the clock under the OS.** In 3 of 36 boots the firmware switched the package to
+- **Firmware changed the clock under the OS.** In 4 of 40 boots the firmware switched the package to
   cTDP level 1 (800 MHz, 10 W) for ~3 minutes while sysfs still reported `performance`.
   Every clock-bound test in that window was exactly 2.0x slower. The harness now logs the
   cTDP MSR (0x64B) and fails such runs. The cause of the switch is unknown.
-  <!-- TODO(after cTDP rerun): state the rerun outcome. -->
+  The affected runs were set aside (`results/superseded-ctdp/`) and rerun. One rerun hit a
+  fourth episode, which the guard caught and retried on the next boot. Runs from before the
+  cTDP logging were checked instead by each test's p50 against its config's median: none is
+  above 1.4x, against the 2.0x signature.
 - **`scaling_cur_freq` is wrong on `nohz_full` CPUs** (it reads 400 MHz), so the clock is taken
   from APERF/MPERF instead.
 - **3 runs per config.** The variance test is the plain max−min range of 3 runs, which is
