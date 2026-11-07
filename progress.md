@@ -1,7 +1,7 @@
 # Progress — Linux Latency Characterization Suite
 
 ## Environment
-- Main laptop: Windows 11, `C:\Users\rodea\LinuxLatency`. Repo: private `RodeanAzari/linux-latency-suite` (make public once results and README are ready).
+- Main laptop: Windows 11, `C:\Users\rodea\LinuxLatency`. Repo: **public** `RodeanAzari/linux-latency-suite` since 2026-11-07, MIT. Anything pushed is published.
 - T490: `ssh t490@192.168.40.117`, passwordless sudo, repo at `~/linux-latency-suite` (deploy key via `github-latency` SSH alias). Dedicated: reboots and GRUB edits are free.
 - Debian 13 (not 12: minimal and installed; `linux-cpupower` replaces `cpufrequtils`). Stock and RT `6.12.115+deb13.1` installed and `apt-mark hold`. GRUB default is saved-by-name to stock (RT sorts first); RT boots one-shot via `grub-reboot`.
 - SSH is over Wi-Fi only (`wlp0s20f3`); no Ethernet available. Keep `enp0s31f6` unplugged for the whole campaign.
@@ -45,5 +45,5 @@
 - `scaling_cur_freq` reads 400 MHz on `nohz_full` CPUs: the monitor's clock column is meaningless from row 3 on. Real clock needs APERF/MPERF.
 
 ## Next steps
-1. Publish (user's call): no LICENSE yet; then make `RodeanAzari/linux-latency-suite` public. Optional evidence: an asciinema cast of `collect.sh status` / a campaign boot (user records). Resume line: §11's "isolation cut loaded p99.9" is NOT supported (isolate step inconclusive); use measured numbers.
+1. Demo evidence (user records): asciinema of a campaign boot; see session notes for other demos.
 2. Open threads: getppid median rises 270→390 ns at `isolate` (nohz_full context tracking?); idle sched_latency APERF/MPERF reads ~400 MHz (clock low during wakeups from idle?). Also: cross-core ~20 us tail (C-states?); UDP slower on SMT; memlat DRAM p99.9; a one-off 3.1→2.8 GHz step-down at ~570 s of load.

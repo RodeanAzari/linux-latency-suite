@@ -33,7 +33,7 @@ It goes on the user's GitHub, website and resume, so decisions also serve how it
 | D | Platform floor: SMI and thermal characterization | DONE |
 | E | Configuration matrix automation | DONE (27/27 runs ok, 2026-11-05) |
 | F | PREEMPT_RT build and comparison | DONE (Debian -rt kernel; throughput 6/6 ok, 2026-11-07) |
-| G | Analysis, plots, report | DONE (2026-11-07; repo not yet public) |
+| G | Analysis, plots, report | DONE (2026-11-07; repo public, MIT) |
 
 ## Hardware target
 ThinkPad T490, i5-8365U 4C/8T (SMT siblings 0/4, 1/5, 2/6, 3/7), 15 GiB, headless Debian 13, stock and PREEMPT_RT 6.12.115 kernels (held). BIOS state and platform findings: `docs/platform.md`. Changing BIOS settings mid-campaign invalidates earlier runs. SMIs cannot be disabled on this machine; they are the measured floor, not a bug.
