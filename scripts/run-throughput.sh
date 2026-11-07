@@ -15,7 +15,7 @@ export PATH="$PATH:/usr/sbin:/sbin"
 O=$1
 DUR=${DUR:-60}		# s per stressor
 COOL=${COOL:-20}	# s idle before each, so each starts near the same temperature
-STRESSORS="cpu switch pipe getpid vm"
+STRESSORS="cpu switch pipe get vm"	# get: the get*() syscalls (no getpid stressor in 0.19)
 CPU=/sys/devices/system/cpu
 mkdir -p "$O"
 
