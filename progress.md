@@ -25,7 +25,7 @@
 - **Busy-loop warmup is ≥200 ms by time**, not only 1000 iterations (powersave ramp).
 - **Campaign:** one boot = one (config, round), idle then loaded; rounds round-robin; boot verified against the row before measuring; 3 min settle (abort: `touch ~/STOP-CAMPAIGN`); Wi-Fi off only during the suite; iTCO watchdog; 2 failed boots → run skipped. Details in `scripts/collect.sh` header.
 - Reject tainted kernels (out-of-tree modules) in every run.
-- **RT kernel = Debian's packaged `6.12.115+deb13.1-rt-amd64`, not §6's kernel.org + RT patch build (user, 2026-11-07).** Same source package (6.12.115-2) as stock, only `CONFIG_PREEMPT_RT=y`; PREEMPT_RT is mainline since 6.12. Cleaner stock-vs-RT delta than a hand build.
+- **RT kernel = Debian's packaged `6.12.115+deb13.1-rt-amd64`, not §6's kernel.org + RT patch build (Claude's recommendation 2026-11-07, pending user OK).** Same source package (6.12.115-2) as stock, only `CONFIG_PREEMPT_RT=y`; PREEMPT_RT is mainline since 6.12. Cleaner stock-vs-RT delta than a hand build.
 - BIOS settings are not in the sidecars (recorded once in `docs/platform.md`, held fixed); `docs/methodology.md` says so.
 
 ## Traps
