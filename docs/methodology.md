@@ -101,8 +101,9 @@ Each sample is placed in the 100 ms monitor interval it fell in. An interval is 
 if the measured core's or the package's throttle counter rose during it. Percentiles are
 reported for all samples and for each side of the split, and a side with fewer than 10 samples
 beyond a percentile has that percentile left out. The whole interval counts, so the split leans
-towards "throttled". Idle runs had no throttling. Loaded runs were ~99% throttled at
-95–98 °C, so their unthrottled side is mostly empty, and the README says so.
+towards "throttled". Idle runs had no throttling. Loaded runs with turbo on (`baseline`, spot row) were ~98%
+throttled at ~96 °C, so their unthrottled side is mostly empty. Loaded runs with turbo off
+(rows 1–7) peaked at 51–57 °C and were never throttled.
 
 ## Run-to-run variance (§3.6)
 

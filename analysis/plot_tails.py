@@ -4,7 +4,7 @@
 Usage: plot_tails.py RESULTS_DIR LOAD OUT.png TEST [TEST ...]
   e.g. plot_tails.py results loaded docs/imgs/tails_loaded.png sched_latency syscall_getppid
 
-One panel per test. Each line is one cumulative config (spot rows left out),
+One panel per test, three per row. Each line is one cumulative config (spot rows left out),
 the samples of its runs pooled: the fraction of samples slower than x
 (1 - CDF, log scale), HDR-histogram style, so p99, p99.9 and p99.99 read
 off the y axis at 1e-2, 1e-3 and 1e-4. Pooling shows the shape of the tail;
@@ -48,10 +48,15 @@ def main(results, load, out, tests):
         sys.exit(f"{len(cfgs)} configs but {len(SERIES)} series colours")
     plt.rcParams.update({"font.size": 9, "axes.edgecolor": MUTED, "axes.labelcolor": INK2,
                          "xtick.color": MUTED, "ytick.color": MUTED, "text.color": INK})
-    fig, axes = plt.subplots(1, len(tests), figsize=(5.2 * len(tests), 4.8), facecolor=SURFACE,
+    ncol = min(3, len(tests))
+    nrow = -(-len(tests) // ncol)
+    fig, axes = plt.subplots(nrow, ncol, figsize=(5.2 * ncol, 4.2 * nrow + 0.8), facecolor=SURFACE,
                              squeeze=False)
+    axes = axes.ravel()
+    for ax in axes[len(tests):]:
+        ax.set_visible(False)
     missing = []
-    for ax, test in zip(axes[0], tests):
+    for ax, test in zip(axes, tests):
         ax.set_facecolor(SURFACE)
         unit = "?"
         for color, cfg in zip(SERIES, cfgs):  # fixed order: colour follows the config
@@ -77,11 +82,12 @@ def main(results, load, out, tests):
         ax.spines[["top", "right"]].set_visible(False)
         ax.set_title(test, loc="left", fontsize=10, color=INK)
         ax.set_xlabel(unit)
-    axes[0][0].set_ylabel("fraction of samples slower than x")
-    h, lab = axes[0][0].get_legend_handles_labels()
+    for ax in axes[::ncol]:
+        ax.set_ylabel("fraction of samples slower than x")
+    h, lab = axes[0].get_legend_handles_labels()
     fig.legend(h, lab, loc="lower center", ncol=4, frameon=False, fontsize=8)
     fig.suptitle(f"Latency tails per configuration, {load}", x=0.01, ha="left", fontsize=12, color=INK)
-    fig.tight_layout(rect=(0, 0.12, 1, 0.95))
+    fig.tight_layout(rect=(0, 0.6 / fig.get_figheight(), 1, 1 - 0.5 / fig.get_figheight()))
     fig.savefig(out, dpi=150, facecolor=SURFACE)
     for m in missing:  # absence must be explained, not silent (nosmt has no ctxswitch_2_6)
         print(f"missing: {m}", file=sys.stderr)
