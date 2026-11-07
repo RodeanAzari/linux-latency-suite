@@ -141,7 +141,10 @@ variance test's job above.
 
 ## PREEMPT_RT: what it buys and what it costs
 
-Rows 6 and 7 have the same cmdline; only the kernel differs. On loaded timer wakeups, RT cuts
+Rows 6 and 7 have the same cmdline; only the kernel differs. Both kernels are built from the same
+Debian source package (6.12.115-2): the `-rt` flavour sets `CONFIG_PREEMPT_RT=y` where stock has
+`PREEMPT_VOLUNTARY`. PREEMPT_RT is in mainline since 6.12, so no out-of-tree patch is involved,
+and this step changes the preemption model and nothing else. On loaded timer wakeups, RT cuts
 p99.9 from 21.6 to 13.8 µs (−36%) and p99 from 9.0 to 7.4 µs (−18%), with p50 unchanged. Idle,
 every difference is within run-to-run spread.
 
@@ -248,8 +251,8 @@ A failed or skipped test is recorded as `FAILED` in `run.json`, never left silen
   end of throttling and is not split into the two.
 - **Unexplained: `getppid()` gets ~45% slower at p50 when `isolate` is added** (271 → 394 ns
   idle). `nohz_full` context tracking on syscall entry/exit is the suspect; it was not verified.
-- **PREEMPT_RT is Debian's packaged `-rt` kernel**, not built from kernel.org plus the RT patch.
-  Its throughput cost was measured on 5 `stress-ng` stressors only, not on a real workload.
+- **PREEMPT_RT's throughput cost** was measured on 5 `stress-ng` stressors only, not on a
+  real workload.
 
 ## Build and run from clean
 
@@ -288,6 +291,10 @@ python3 analysis/throughput.py           # -> results/throughput.csv
 Machine setup (BIOS state, disabled services, GRUB layout, held kernels) is in
 `docs/platform.md`, the method in `docs/methodology.md`, and the original spec in
 `docs/buildplan.md`.
+
+## License
+
+MIT, see [`LICENSE`](LICENSE).
 
 ## Repository layout
 
