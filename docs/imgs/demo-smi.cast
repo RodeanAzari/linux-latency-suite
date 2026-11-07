@@ -1,0 +1,8 @@
+{"version": 2, "width": 104, "height": 26, "timestamp": 1794080188, "idle_time_limit": 1.0, "env": {"SHELL": "/bin/bash", "TERM": "tmux-256color"}, "title": "An SMI caught live"}
+[0.024802, "o", "Kernel 6.12.115+deb13.1-amd64: spinning on CPU 2, timing every gap > 300 ns, 30 s per run.\r\nLoad on CPUs 0,1,4,5. Waiting for the firmware to take the CPU away...\r\n\r\n"]
+[35.237188, "o", "   30 s    37461 gaps   largest   125.1 us   SMIs 0\r\n"]
+[65.456451, "o", "   60 s    29459 gaps   largest    69.5 us   SMIs 0\r\n"]
+[95.666787, "o", "   90 s    30043 gaps   largest    42.6 us   SMIs 0\r\n"]
+[125.875306, "o", "  120 s    21063 gaps   largest    33.5 us   SMIs 0\r\n"]
+[155.991357, "o", "  150 s    21411 gaps   largest    35.8 us   SMIs 0\r\n"]
+[186.203071, "o", "  180 s    23073 gaps   largest    37.1 us   SMIs 1\r\n\r\n  SMI: CPU 2 was gone for 2.09 ms. The OS saw nothing; only the\r\n       firmware's SMI counter (MSR 0x34) moved, 4715 -> 4716.\r\n  That is 56x the largest gap Linux caused in the same run,\r\n  and no kernel setting can prevent it: it is this machine's latency floor.\r\n"]

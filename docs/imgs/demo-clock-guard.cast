@@ -1,0 +1,10 @@
+{"version": 2, "width": 104, "height": 26, "timestamp": 1794080175, "idle_time_limit": 1.0, "env": {"SHELL": "/bin/bash", "TERM": "tmux-256color"}, "title": "Clock guard: cTDP episode 4"}
+[0.002111, "o", "Run irqaffinity/run2, loaded half. sysfs said platform_profile=performance throughout.\r\n"]
+[0.221535, "o", "The monitor log, mid-test: cTDP level 0 -> 1 at 48 C, throttle counters unchanged.\r\n\r\ntest (p50)                that run       rerun   ratio   clock then\r\n"]
+[0.233179, "o", "getppid() (before)        0.387 us     0.39 us   0.99x     1597 MHz\r\n"]
+[0.245202, "o", "L1 load                    5.19 ns     2.61 ns   1.99x      798 MHz\r\n"]
+[0.257182, "o", "ctx switch                 12.6 us     6.41 us   1.97x      798 MHz\r\n"]
+[0.313805, "o", "\r\n$ python3 analysis/clock_guard.py results/superseded-ctdp/irqaffinity/run2-20261105T234256 0 1600\r\n"]
+[1.639169, "o", "loaded/ctxswitch_2_2: tdp_level [1] in 16/16 monitor rows, want 0\r\nloaded/ctxswitch_2_2: busy clock 798 MHz, want 1600\r\nloaded/ctxswitch_2_3: tdp_level [1] in 24/24 monitor rows, want 0\r\nloaded/ctxswitch_2_3: busy clock 798 MHz, want 1600\r\nloaded/ctxswitch_2_6: tdp_level [1] in 28/28 monitor rows, want 0\r\nloaded/ctxswitch_2_6: busy clock 798 MHz, want 1600\r\n"]
+[1.640718, "o", "... 46 problems, exit 1: run set aside, retried on the next boot\r\n\r\n$ python3 analysis/clock_guard.py results/irqaffinity/run2 0 1600\r\n"]
+[2.96203, "o", "0 problems, exit 0: the rerun is the one in the results\r\n"]

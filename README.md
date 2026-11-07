@@ -33,6 +33,22 @@ Debian 6.12.115 kernels.
 - **Only 237 of 702 measured knob effects exceed reboot-to-reboot spread.** Most "results"
   a single run would have shown are noise.
 
+## Demos
+
+**An SMI caught live** (`scripts/demo-smi.sh`). `hwgap` spins on an isolated CPU under load in
+30 s runs. Each line is one finished run, and the 30 s waits are cut to 1 s in playback.
+Linux's own interruptions stay under ~130 µs. Then the firmware takes the CPU for 2 ms, and
+only the SMI counter knows.
+
+![hwgap catching a 2.09 ms SMI: 56x the largest gap Linux caused](docs/imgs/demo-smi.gif)
+
+**The clock guard on the run it caught** (`scripts/demo-clock-guard.sh`). Mid-run, the
+firmware dropped the package to cTDP level 1 while sysfs still said `performance`. Every test
+after the switch ran at 798 MHz and took exactly 2x as long. The guard fails the run, and the
+rerun passes.
+
+![clock_guard.py failing the cTDP-affected run and passing its rerun](docs/imgs/demo-clock-guard.gif)
+
 ## The matrix
 
 Each row adds one knob to the previous row, so each step measures that knob's marginal
