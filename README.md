@@ -254,7 +254,7 @@ python3 analysis/analyze.py /tmp/out/sched_latency.bin
 scripts/collect.sh init 3
 scripts/collect.sh status                # after it finishes
 
-# analysis
+# analysis (tests: python3 -m pytest, from the repo root; needs pytest)
 python3 analysis/summarize.py            # -> results/summary.csv
 python3 analysis/deltas.py               # -> results/deltas.csv
 python3 analysis/plot_knobs.py           # -> docs/imgs/knob_deltas_p99.9.png

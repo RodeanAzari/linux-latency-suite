@@ -41,6 +41,7 @@ ThinkPad T490, i5-8365U 4C/8T (SMT siblings 0/4, 1/5, 2/6, 3/7), 15 GiB, headles
 ## Toolchain and build targets
 - C (gcc, make): `make -C harness` → `harness/build/{sched_latency,syscall_bench,ctxswitch,memlat,ipc_latency,hwgap}`. Shared timing, pinning, mlockall, sample I/O, sidecar and monitor code in `harness/common.{c,h}`.
 - POSIX sh scripts in `scripts/` (run from the repo root on the T490), Python 3 + numpy/pandas/matplotlib in `analysis/`.
+- Tests: `python3 -m pytest` from the repo root (`analysis/test_*.py`, synthetic fixtures; pytest via pip on the laptop, `python3-pytest` on the T490). New analysis logic gets a test plus a bug-injection check.
 - Reference tools: `rt-tests` (cyclictest, hwlatdetect), `perf`, `stress-ng`, `msr-tools`, `linux-cpupower`.
 
 ## Repository layout
